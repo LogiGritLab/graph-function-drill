@@ -1,6 +1,14 @@
 README.md
 # Graph Function Drill
 
+グラフと関数式の対応を楽しく学べるWeb教材です。
+
+直線・放物線・双曲線を題材に、「グラフ→式」「式→グラフ」の両方向から学習できます。
+
+小学生・中学生・高校生だけでなく、SAT MathやA Level Mathematicsを学ぶ方にもおすすめです。
+
+
+
 An interactive web application for practicing the relationship between graphs and equations.
 
 🌐 Live Demo
