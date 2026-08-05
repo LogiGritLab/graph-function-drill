@@ -1,9 +1,8 @@
 /**
- * グラフ関数ドリル / Graph Function Drill
- * 直線・放物線・双曲線 — グラフと式の対応練習（3択）
+ * 直線・放物線・双曲線関数 読み取り練習サイト
+ * Graph & Function Reading Practice
  */
 
-/* ========== Meta ========== */
 const TYPE_META = {
   linear: { labelJa: '直線', labelEn: 'Linear' },
   parabola: { labelJa: '放物線', labelEn: 'Parabola' },
@@ -12,19 +11,19 @@ const TYPE_META = {
 
 const FORM_OPTIONS = {
   linear: [
-    { id: 'ax', labelJa: 'y = ax', labelEn: 'y = ax' },
-    { id: 'axb', labelJa: 'y = ax + b', labelEn: 'y = ax + b' }
+    { id: 'ax', tex: 'y = ax' },
+    { id: 'axb', tex: 'y = ax + b' }
   ],
   parabola: [
-    { id: 'ax2', labelJa: 'y = ax²', labelEn: 'y = ax²' },
-    { id: 'ax2q', labelJa: 'y = ax² + q', labelEn: 'y = ax² + q' },
-    { id: 'axp2', labelJa: 'y = a(x − p)²', labelEn: 'y = a(x − p)²' },
-    { id: 'axp2q', labelJa: 'y = a(x − p)² + q', labelEn: 'y = a(x − p)² + q' }
+    { id: 'ax2', tex: 'y = ax^{2}' },
+    { id: 'ax2q', tex: 'y = ax^{2} + q' },
+    { id: 'axp2', tex: 'y = a(x - p)^{2}' },
+    { id: 'axp2q', tex: 'y = a(x - p)^{2} + q' }
   ],
   hyperbola: [
-    { id: 'kx', labelJa: 'y = k/x', labelEn: 'y = k/x' },
-    { id: 'kxp', labelJa: 'y = k/(x − p)', labelEn: 'y = k/(x − p)' },
-    { id: 'kxpq', labelJa: 'y − q = k/(x − p)', labelEn: 'y − q = k/(x − p)' }
+    { id: 'kx', tex: 'y = \\dfrac{k}{x}' },
+    { id: 'kxp', tex: 'y = \\dfrac{k}{x - p}' },
+    { id: 'kxpq', tex: 'y = \\dfrac{k}{x - p} + q' }
   ]
 };
 
@@ -37,14 +36,8 @@ const MODE_META = {
 const typeMenu = document.getElementById('typeMenu');
 const formMenu = document.getElementById('formMenu');
 const modeMenu = document.getElementById('modeMenu');
-const subTitle = document.getElementById('subTitle');
-const feedbackEl = document.getElementById('feedback');
-const feedbackTextEl = document.getElementById('feedbackText');
-const explanationEl = document.getElementById('explanation');
-const nextProblemBtn = document.getElementById('nextProblemBtn');
 const questionArea = document.getElementById('questionArea');
-const choicesEl = document.getElementById('choices');
-const inputHint = document.getElementById('inputHint');
+const explanationEl = document.getElementById('explanation');
 const correctCountEl = document.getElementById('correctCount');
 const wrongCountEl = document.getElementById('wrongCount');
 const streakCountEl = document.getElementById('streakCount');
@@ -91,27 +84,61 @@ function uniqueBy(arr, keyFn) {
   return out;
 }
 
-function signed(n) {
-  if (n >= 0) return `+ ${n}`;
-  return `− ${Math.abs(n)}`;
-}
-
-function coeff(n, varName) {
-  if (n === 1) return varName;
-  if (n === -1) return `−${varName}`;
-  if (n < 0) return `−${Math.abs(n)}${varName}`;
-  return `${n}${varName}`;
-}
-
-function fmtNum(n) {
-  return String(n);
-}
-
 function paramsKey(params) {
   return JSON.stringify(params);
 }
 
-/* ========== Math / evaluate ========== */
+function paren(n) {
+  return n < 0 ? `(${n})` : `${n}`;
+}
+
+function latexNum(n) {
+  if (n < 0) return `-${Math.abs(n)}`;
+  return String(n);
+}
+
+function latexCoeff(n, body) {
+  if (n === 1) return body;
+  if (n === -1) return `-${body}`;
+  return `${latexNum(n)}${body}`;
+}
+
+function formatCoeff(c, variable) {
+  if (c === 1) return variable;
+  if (c === -1) return `-${variable}`;
+  return `${c}${variable}`;
+}
+
+function latexSigned(n) {
+  if (n >= 0) return `+ ${n}`;
+  return `- ${Math.abs(n)}`;
+}
+
+function renderKatex(tex, displayMode = false) {
+  if (typeof katex === 'undefined') {
+    return `<span class="tex-fallback">${tex}</span>`;
+  }
+  try {
+    return katex.renderToString(tex, {
+      throwOnError: false,
+      displayMode,
+      strict: 'ignore'
+    });
+  } catch {
+    return `<span class="tex-fallback">${tex}</span>`;
+  }
+}
+
+function renderKatexIn(el) {
+  if (!el || typeof katex === 'undefined') return;
+  el.querySelectorAll('.tex').forEach((node) => {
+    const tex = node.getAttribute('data-tex') || node.textContent;
+    const display = node.getAttribute('data-display') === 'true';
+    node.innerHTML = renderKatex(tex, display);
+  });
+}
+
+/* ========== Math ========== */
 function evalFn(form, params, x) {
   const { a, b, p, q, k } = params;
   switch (form) {
@@ -130,13 +157,17 @@ function evalFn(form, params, x) {
 
 function domainOf(form, params) {
   if (form === 'kx') {
-    return { ja: 'x ≠ 0', en: 'x ≠ 0', exclude: [0] };
+    return { ja: 'x \\neq 0', en: 'x \\neq 0', exclude: [0] };
   }
   if (form === 'kxp' || form === 'kxpq') {
     const p = params.p;
-    return { ja: `x ≠ ${p}`, en: `x ≠ ${p}`, exclude: [p] };
+    return {
+      ja: `x \\neq ${latexNum(p)}`,
+      en: `x \\neq ${latexNum(p)}`,
+      exclude: [p]
+    };
   }
-  return { ja: 'すべての実数 / all real numbers', en: 'all real numbers', exclude: [] };
+  return { ja: '\\text{すべての実数}', en: '\\text{all real numbers}', exclude: [] };
 }
 
 function asymptotesOf(form, params) {
@@ -146,119 +177,194 @@ function asymptotesOf(form, params) {
   return [];
 }
 
-function formatFormula(form, params, withDomain = true) {
+/** LaTeX の式本体 */
+function formulaTex(form, params) {
   const { a, b, p, q, k } = params;
-  let main = '';
+  switch (form) {
+    case 'ax': return `y = ${latexCoeff(a, 'x')}`;
+    case 'axb':
+      if (b === 0) return `y = ${latexCoeff(a, 'x')}`;
+      return `y = ${latexCoeff(a, 'x')} ${latexSigned(b)}`;
+    case 'ax2': return `y = ${latexCoeff(a, 'x^{2}')}`;
+    case 'ax2q':
+      if (q === 0) return `y = ${latexCoeff(a, 'x^{2}')}`;
+      return `y = ${latexCoeff(a, 'x^{2}')} ${latexSigned(q)}`;
+    case 'axp2': {
+      const inner = p === 0 ? 'x' : `(x ${latexSigned(-p)})`;
+      const body = p === 0 ? 'x^{2}' : `${inner}^{2}`;
+      return `y = ${latexCoeff(a, body)}`;
+    }
+    case 'axp2q': {
+      const inner = p === 0 ? 'x' : `(x ${latexSigned(-p)})`;
+      const body = p === 0 ? 'x^{2}' : `${inner}^{2}`;
+      const left = latexCoeff(a, body);
+      if (q === 0) return `y = ${left}`;
+      return `y = ${left} ${latexSigned(q)}`;
+    }
+    case 'kx': {
+      const sign = k < 0 ? '-' : '';
+      return `y = ${sign}\\dfrac{${Math.abs(k)}}{x}`;
+    }
+    case 'kxp': {
+      const sign = k < 0 ? '-' : '';
+      const den = p === 0 ? 'x' : `x ${latexSigned(-p)}`;
+      return `y = ${sign}\\dfrac{${Math.abs(k)}}{${den}}`;
+    }
+    case 'kxpq': {
+      const sign = k < 0 ? '-' : '';
+      const den = p === 0 ? 'x' : `x ${latexSigned(-p)}`;
+      const qStr = q > 0 ? `+ ${q}` : `- ${Math.abs(q)}`;
+      if (q === 0) return `y = ${sign}\\dfrac{${Math.abs(k)}}{${den}}`;
+      return `y = ${sign}\\dfrac{${Math.abs(k)}}{${den}} ${qStr}`;
+    }
+    default:
+      return 'y = ?';
+  }
+}
+
+function formulaHtml(form, params, withDomain = true) {
+  const tex = formulaTex(form, params);
+  const main = renderKatex(tex);
+  if (!withDomain) return { tex, main, domain: null, html: main };
+  const dom = domainOf(form, params);
+  const domainHtml = `<span class="domain">定義域 / domain: ${renderKatex(dom.ja)}</span>`;
+  return { tex, main, domain: dom, html: main + domainHtml };
+}
+
+/* ========== Features for annotations ========== */
+function isInt(n) {
+  return Number.isFinite(n) && Math.abs(n - Math.round(n)) < 1e-9;
+}
+
+function getGraphFeatures(form, params) {
+  const features = {
+    vertex: null,
+    yIntercept: null,
+    xIntercepts: [],
+    asymptotes: asymptotesOf(form, params)
+  };
+
+  const { a, b, p, q } = params;
+
+  if (!domainOf(form, params).exclude.includes(0)) {
+    const y0 = evalFn(form, params, 0);
+    if (isInt(y0) && Math.abs(y0) <= 6) {
+      features.yIntercept = { x: 0, y: Math.round(y0) };
+    }
+  }
 
   switch (form) {
     case 'ax':
-      main = `y = ${coeff(a, 'x')}`;
+      features.yIntercept = { x: 0, y: 0 };
+      if (a !== 0) features.xIntercepts.push({ x: 0, y: 0 });
       break;
-    case 'axb': {
-      if (b === 0) main = `y = ${coeff(a, 'x')}`;
-      else main = `y = ${coeff(a, 'x')} ${signed(b)}`;
+    case 'axb':
+      features.yIntercept = { x: 0, y: b };
+      if (a !== 0 && isInt(-b / a)) {
+        features.xIntercepts.push({ x: Math.round(-b / a), y: 0 });
+      }
       break;
-    }
     case 'ax2':
-      main = `y = ${coeff(a, 'x²')}`;
+      features.vertex = { x: 0, y: 0 };
+      features.yIntercept = { x: 0, y: 0 };
+      features.xIntercepts.push({ x: 0, y: 0 });
       break;
-    case 'ax2q': {
-      if (q === 0) main = `y = ${coeff(a, 'x²')}`;
-      else main = `y = ${coeff(a, 'x²')} ${signed(q)}`;
+    case 'ax2q':
+      features.vertex = { x: 0, y: q };
+      features.yIntercept = { x: 0, y: q };
+      if (a !== 0 && q / a <= 0 && isInt(Math.sqrt(-q / a))) {
+        const t = Math.round(Math.sqrt(-q / a));
+        features.xIntercepts.push({ x: t, y: 0 }, { x: -t, y: 0 });
+      }
       break;
-    }
-    case 'axp2': {
-      const inner = p === 0 ? 'x' : `(x ${signed(-p)})`;
-      main = `y = ${a === 1 ? '' : a === -1 ? '−' : a}${inner === 'x' ? 'x²' : `${inner}²`}`;
+    case 'axp2':
+      features.vertex = { x: p, y: 0 };
+      features.xIntercepts.push({ x: p, y: 0 });
+      if (!domainOf(form, params).exclude.includes(0)) {
+        const y0 = a * p * p;
+        if (isInt(y0) && Math.abs(y0) <= 6) features.yIntercept = { x: 0, y: Math.round(y0) };
+      }
       break;
-    }
-    case 'axp2q': {
-      const inner = p === 0 ? 'x' : `(x ${signed(-p)})`;
-      const left = `${a === 1 ? '' : a === -1 ? '−' : a}${inner === 'x' ? 'x²' : `${inner}²`}`;
-      if (q === 0) main = `y = ${left}`;
-      else main = `y = ${left} ${signed(q)}`;
+    case 'axp2q':
+      features.vertex = { x: p, y: q };
+      if (!domainOf(form, params).exclude.includes(0)) {
+        const y0 = a * p * p + q;
+        if (isInt(y0) && Math.abs(y0) <= 6) features.yIntercept = { x: 0, y: Math.round(y0) };
+      }
       break;
-    }
-    case 'kx':
-      main = `y = ${k}/x`;
-      break;
-    case 'kxp': {
-      const den = p === 0 ? 'x' : `(x ${signed(-p)})`;
-      main = `y = ${k}/${den}`;
-      break;
-    }
-    case 'kxpq': {
-      const den = p === 0 ? 'x' : `(x ${signed(-p)})`;
-      // メニュー表記に合わせた標準形: y − q = k/(x − p)
-      if (q === 0) main = `y = ${k}/${den}`;
-      else main = `y ${signed(-q)} = ${k}/${den}`;
-      break;
-    }
-    default:
-      main = 'y = ?';
   }
 
-  if (!withDomain) return { main, domain: null, html: main };
+  return features;
+}
 
-  const dom = domainOf(form, params);
-  const domainText = form.startsWith('k')
-    ? `（定義域 / domain: ${dom.ja}）`
-    : '';
-  return {
-    main,
-    domain: dom,
-    domainText,
-    html: domainText
-      ? `${main}<span class="domain">${domainText}</span>`
-      : main
-  };
+function featuresCaptionHtml(form, params, primaryPoint) {
+  const f = getGraphFeatures(form, params);
+  const lines = [];
+
+  if (f.vertex) {
+    lines.push(`頂点: ${renderKatex(`(${f.vertex.x},\\, ${f.vertex.y})`)}`);
+  }
+
+  if (f.yIntercept) {
+    const isSameAsVertex = f.vertex && f.vertex.x === f.yIntercept.x && f.vertex.y === f.yIntercept.y;
+    if (!isSameAsVertex) {
+      lines.push(`y切片: ${renderKatex(`(${f.yIntercept.x},\\, ${f.yIntercept.y})`)}`);
+    }
+  }
+
+  const uniqueXInts = f.xIntercepts.filter(pt => {
+    if (f.vertex && f.vertex.x === pt.x && f.vertex.y === pt.y) return false;
+    return true;
+  });
+  if (uniqueXInts.length) {
+    const xs = uniqueXInts.map((pt) => renderKatex(`(${pt.x},\\, 0)`)).join(', ');
+    lines.push(`x切片: ${xs}`);
+  }
+
+  if (f.asymptotes.length) {
+    const asy = f.asymptotes.map((a) => {
+      if (a.type === 'v') return renderKatex(`x = ${a.value}`);
+      return renderKatex(`y = ${a.value}`);
+    }).join(', ');
+    lines.push(`漸近線: ${asy}`);
+  }
+
+  const special = new Set();
+  if (f.vertex) special.add(`${f.vertex.x},${f.vertex.y}`);
+  if (f.yIntercept) special.add(`${f.yIntercept.x},${f.yIntercept.y}`);
+  f.xIntercepts.forEach((pt) => special.add(`${pt.x},${pt.y}`));
+  
+  if (primaryPoint && !special.has(`${primaryPoint.x},${primaryPoint.y}`)) {
+    lines.push(`通る点: ${renderKatex(`(${primaryPoint.x},\\, ${primaryPoint.y})`)}`);
+  }
+
+  return lines.join('<br>');
 }
 
 /* ========== Parameter generation ========== */
 const NONZERO = [-3, -2, -1, 1, 2, 3];
-const NONZERO_WIDE = [-4, -3, -2, -1, 1, 2, 3, 4];
 const SHIFT = [-3, -2, -1, 1, 2, 3];
 
 function genParams(form) {
   switch (form) {
-    case 'ax':
-      return { a: pick(NONZERO) };
-    case 'axb':
-      return { a: pick(NONZERO), b: pick(SHIFT) };
-    case 'ax2':
-      return { a: pick(NONZERO) };
-    case 'ax2q':
-      return { a: pick(NONZERO), q: pick(SHIFT) };
-    case 'axp2':
-      return { a: pick(NONZERO), p: pick(SHIFT) };
-    case 'axp2q':
-      return { a: pick(NONZERO), p: pick(SHIFT), q: pick(SHIFT) };
-    case 'kx':
-      // k は ±1〜±6（整数点が出やすい）
-      return { k: pick([-6, -4, -3, -2, -1, 1, 2, 3, 4, 6]) };
-    case 'kxp':
-      return {
-        k: pick([-6, -4, -3, -2, -1, 1, 2, 3, 4, 6]),
-        p: pick(SHIFT)
-      };
-    case 'kxpq':
-      return {
-        k: pick([-6, -4, -3, -2, -1, 1, 2, 3, 4, 6]),
-        p: pick(SHIFT),
-        q: pick(SHIFT)
-      };
-    default:
-      return {};
+    case 'ax': return { a: pick(NONZERO) };
+    case 'axb': return { a: pick(NONZERO), b: pick(SHIFT) };
+    case 'ax2': return { a: pick(NONZERO) };
+    case 'ax2q': return { a: pick(NONZERO), q: pick(SHIFT) };
+    case 'axp2': return { a: pick(NONZERO), p: pick(SHIFT) };
+    case 'axp2q': return { a: pick(NONZERO), p: pick(SHIFT), q: pick(SHIFT) };
+    case 'kx': return { k: pick([-6, -4, -3, -2, -1, 1, 2, 3, 4, 6]) };
+    case 'kxp': return { k: pick([-6, -4, -3, -2, -1, 1, 2, 3, 4, 6]), p: pick(SHIFT) };
+    case 'kxpq': return { k: pick([-6, -4, -3, -2, -1, 1, 2, 3, 4, 6]), p: pick(SHIFT), q: pick(SHIFT) };
+    default: return {};
   }
 }
 
-/** 正解に近い紛らわしい distractor を生成 */
 function genDistractors(form, correct) {
   const c = { ...correct };
   const candidates = [];
 
   const push = (obj) => {
-    // ゼロ係数・無意味パラメータを除外
     if (obj.a === 0 || obj.k === 0) return;
     if (paramsKey(obj) === paramsKey(c)) return;
     candidates.push(obj);
@@ -268,89 +374,75 @@ function genDistractors(form, correct) {
     case 'ax':
       push({ a: -c.a });
       push({ a: c.a > 0 ? c.a + 1 : c.a - 1 });
-      push({ a: c.a > 0 ? c.a - 1 || 2 : c.a + 1 || -2 });
-      if (Math.abs(c.a) !== 2) push({ a: c.a > 0 ? 2 : -2 });
-      push({ a: c.a === 1 ? 3 : c.a === -1 ? -3 : (c.a > 0 ? 1 : -1) });
+      push({ a: c.a > 0 ? (c.a - 1 || 2) : (c.a + 1 || -2) });
+      push({ a: c.a === 1 ? 3 : c.a === -1 ? -3 : c.a > 0 ? 1 : -1 });
       break;
-
     case 'axb':
       push({ a: -c.a, b: c.b });
       push({ a: c.a, b: -c.b });
       push({ a: -c.a, b: -c.b });
-      push({ a: c.a, b: c.b + (c.b > 0 ? -1 : 1) || 2 });
-      push({ a: c.a + (c.a > 0 ? 1 : -1) || 2, b: c.b });
-      push({ a: c.b !== 0 && Math.abs(c.b) <= 3 ? c.b : c.a, b: c.a }); // 係数と切片の入れ替え風
+      push({ a: c.a, b: (c.b + (c.b > 0 ? -1 : 1)) || 2 });
+      push({ a: (c.a + (c.a > 0 ? 1 : -1)) || 2, b: c.b });
+      if (c.b !== 0 && Math.abs(c.b) <= 3) push({ a: c.b, b: c.a });
       break;
-
     case 'ax2':
       push({ a: -c.a });
       push({ a: c.a > 0 ? c.a + 1 : c.a - 1 });
       push({ a: c.a > 0 ? Math.max(1, c.a - 1) : Math.min(-1, c.a + 1) });
-      push({ a: c.a === 1 ? 2 : c.a === -1 ? -2 : (c.a > 0 ? 1 : -1) });
       break;
-
     case 'ax2q':
       push({ a: -c.a, q: c.q });
       push({ a: c.a, q: -c.q });
       push({ a: -c.a, q: -c.q });
-      push({ a: c.a, q: c.q + (c.q > 0 ? 1 : -1) || 2 });
-      push({ a: c.a + (c.a > 0 ? 1 : -1) || 2, q: c.q });
+      push({ a: c.a, q: (c.q + (c.q > 0 ? 1 : -1)) || 2 });
+      push({ a: (c.a + (c.a > 0 ? 1 : -1)) || 2, q: c.q });
       break;
-
     case 'axp2':
       push({ a: -c.a, p: c.p });
       push({ a: c.a, p: -c.p });
       push({ a: -c.a, p: -c.p });
-      push({ a: c.a, p: c.p + (c.p > 0 ? 1 : -1) || 2 });
-      push({ a: c.a + (c.a > 0 ? 1 : -1) || 2, p: c.p });
+      push({ a: c.a, p: (c.p + (c.p > 0 ? 1 : -1)) || 2 });
+      push({ a: (c.a + (c.a > 0 ? 1 : -1)) || 2, p: c.p });
       break;
-
     case 'axp2q':
       push({ a: -c.a, p: c.p, q: c.q });
       push({ a: c.a, p: -c.p, q: c.q });
       push({ a: c.a, p: c.p, q: -c.q });
       push({ a: c.a, p: -c.p, q: -c.q });
       push({ a: -c.a, p: c.p, q: -c.q });
-      push({ a: c.a, p: c.p + (c.p > 0 ? 1 : -1) || 2, q: c.q });
-      push({ a: c.a, p: c.p, q: c.q + (c.q > 0 ? 1 : -1) || 2 });
+      push({ a: c.a, p: (c.p + (c.p > 0 ? 1 : -1)) || 2, q: c.q });
+      push({ a: c.a, p: c.p, q: (c.q + (c.q > 0 ? 1 : -1)) || 2 });
       break;
-
     case 'kx':
       push({ k: -c.k });
       push({ k: c.k > 0 ? c.k + 1 : c.k - 1 });
       push({ k: c.k > 0 ? Math.max(1, c.k - 1) : Math.min(-1, c.k + 1) });
-      push({ k: c.k === 2 ? 4 : c.k === -2 ? -4 : (c.k > 0 ? 2 : -2) });
-      push({ k: c.k === 1 ? 3 : c.k === -1 ? -3 : (c.k > 0 ? 1 : -1) });
+      push({ k: c.k === 2 ? 4 : c.k === -2 ? -4 : c.k > 0 ? 2 : -2 });
       break;
-
     case 'kxp':
       push({ k: -c.k, p: c.p });
       push({ k: c.k, p: -c.p });
       push({ k: -c.k, p: -c.p });
-      push({ k: c.k + (c.k > 0 ? 1 : -1) || 2, p: c.p });
-      push({ k: c.k, p: c.p + (c.p > 0 ? 1 : -1) || 2 });
+      push({ k: (c.k + (c.k > 0 ? 1 : -1)) || 2, p: c.p });
+      push({ k: c.k, p: (c.p + (c.p > 0 ? 1 : -1)) || 2 });
       break;
-
     case 'kxpq':
       push({ k: -c.k, p: c.p, q: c.q });
       push({ k: c.k, p: -c.p, q: c.q });
       push({ k: c.k, p: c.p, q: -c.q });
       push({ k: c.k, p: -c.p, q: -c.q });
       push({ k: -c.k, p: c.p, q: -c.q });
-      push({ k: c.k, p: c.p + (c.p > 0 ? 1 : -1) || 2, q: c.q });
-      push({ k: c.k, p: c.p, q: c.q + (c.q > 0 ? 1 : -1) || 2 });
-      // p と q の入れ替え（紛らわしい）
+      push({ k: c.k, p: (c.p + (c.p > 0 ? 1 : -1)) || 2, q: c.q });
+      push({ k: c.k, p: c.p, q: (c.q + (c.q > 0 ? 1 : -1)) || 2 });
       if (c.p !== c.q && c.q !== 0) push({ k: c.k, p: c.q, q: c.p });
       break;
   }
 
-  // 足りない場合はランダム近傍を追加
   let guard = 0;
   while (uniqueBy(candidates, paramsKey).length < 4 && guard < 40) {
     guard += 1;
     const d = { ...c };
-    const keys = Object.keys(d);
-    const key = pick(keys);
+    const key = pick(Object.keys(d));
     const delta = pick([-2, -1, 1, 2]);
     d[key] = d[key] + delta;
     if (d[key] === 0 && (key === 'a' || key === 'k')) d[key] = delta > 0 ? 1 : -1;
@@ -360,49 +452,38 @@ function genDistractors(form, correct) {
   return uniqueBy(candidates, paramsKey).slice(0, 8);
 }
 
-/* ========== Integer sample points ========== */
+/* ========== Sample points ========== */
 function samplePoints(form, params, limit = 6) {
   const points = [];
   const exclude = new Set(domainOf(form, params).exclude);
-  const range = [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 0, -6, 6];
+  const range = [0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6];
 
   for (const x of range) {
     if (exclude.has(x)) continue;
     const y = evalFn(form, params, x);
-    if (!Number.isFinite(y)) continue;
-    // 整数座標のみ
-    if (Math.abs(y - Math.round(y)) > 1e-9) continue;
+    if (!Number.isFinite(y) || !isInt(y)) continue;
     const yi = Math.round(y);
-    if (Math.abs(yi) > 12) continue;
-    if (Math.abs(x) > 6 && Math.abs(yi) > 6) continue;
+    if (Math.abs(yi) > 6) continue;
     points.push({ x, y: yi });
     if (points.length >= limit) break;
   }
 
-  // 双曲線で点が少ない場合、約数から追加
   if ((form === 'kx' || form === 'kxp' || form === 'kxpq') && points.length < 4) {
     const k = params.k;
     const p = params.p || 0;
     const q = params.q || 0;
     const divisors = [];
     for (let d = 1; d <= Math.abs(k); d++) {
-      if (Math.abs(k) % d === 0) {
-        divisors.push(d, -d);
-      }
+      if (Math.abs(k) % d === 0) divisors.push(d, -d);
     }
     for (const t of shuffle(divisors)) {
-      // y - q = k / (x - p)  ⇒  x - p = k / (y - q) だが t = x-p とする
       const x = t + p;
-      if (exclude.has(x)) continue;
-      if (Math.abs(x) > 7) continue;
+      if (exclude.has(x) || Math.abs(x) > 6) continue;
       const y = k / t + q;
-      if (!Number.isFinite(y)) continue;
-      if (Math.abs(y - Math.round(y)) > 1e-9) continue;
+      if (!isInt(y)) continue;
       const yi = Math.round(y);
-      if (Math.abs(yi) > 12) continue;
-      if (!points.some((pt) => pt.x === x && pt.y === yi)) {
-        points.push({ x, y: yi });
-      }
+      if (Math.abs(yi) > 6) continue;
+      if (!points.some((pt) => pt.x === x && pt.y === yi)) points.push({ x, y: yi });
       if (points.length >= limit) break;
     }
   }
@@ -411,7 +492,7 @@ function samplePoints(form, params, limit = 6) {
 }
 
 /* ========== SVG Graph ========== */
-const GRAPH_VIEW = { min: -6, max: 6, pad: 18 };
+const GRAPH_VIEW = { min: -6, max: 6, pad: 26 }; // フォントサイズに合わせて余白を少し拡大
 
 function worldToSvg(x, y, size = 320) {
   const { min, max, pad } = GRAPH_VIEW;
@@ -421,84 +502,112 @@ function worldToSvg(x, y, size = 320) {
   return [sx, sy];
 }
 
+function boxesOverlap(a, b, pad = 2) {
+  return !(
+    a.x + a.w + pad < b.x ||
+    b.x + b.w + pad < a.x ||
+    a.y + a.h + pad < b.y ||
+    b.y + b.h + pad < a.y
+  );
+}
+
+function placeLabel(candidates, occupied, size) {
+  const pad = GRAPH_VIEW.pad;
+  for (const c of candidates) {
+    const box = {
+      x: c.anchor === 'end' ? c.x - c.w : c.anchor === 'middle' ? c.x - c.w / 2 : c.x,
+      y: c.y - c.h + 2,
+      w: c.w,
+      h: c.h
+    };
+    if (box.x < 2 || box.y < 2 || box.x + box.w > size - 2 || box.y + box.h > size - 2) continue;
+    if (occupied.some((o) => boxesOverlap(box, o))) continue;
+    occupied.push(box);
+    return c;
+  }
+  for (const c of candidates) {
+    const box = {
+      x: c.anchor === 'end' ? c.x - c.w : c.anchor === 'middle' ? c.x - c.w / 2 : c.x,
+      y: c.y - c.h + 2,
+      w: c.w,
+      h: c.h
+    };
+    if (box.x < 2 || box.y < 2 || box.x + box.w > size - 2 || box.y + box.h > size - 2) continue;
+    occupied.push(box);
+    return c;
+  }
+  return candidates[0];
+}
+
+function estimateTextWidth(text, fontSize) {
+  return Math.max(12, text.length * fontSize * 0.62);
+}
+
 function buildGraphSvg(form, params, opts = {}) {
-  const {
-    size = 320,
-    showPoints = true,
-    showAsymptotes = true,
-    compact = false
-  } = opts;
-
+  const { size = 320, primaryPoint = null, showAsymptotes = true, showLabels = true, compact = false } = opts;
   const { min, max, pad } = GRAPH_VIEW;
-  const usable = size - pad * 2;
-  const unit = usable / (max - min);
-
+  const occupied = [];
   const parts = [];
-  parts.push(`<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="graph">`);
 
-  // background
+  parts.push(`<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="graph">`);
   parts.push(`<rect width="${size}" height="${size}" fill="#ffffff"/>`);
 
-  // grid
   for (let i = min; i <= max; i++) {
+    if (i === 0) continue;
     const [gx] = worldToSvg(i, 0, size);
     const [, gy] = worldToSvg(0, i, size);
-    const isAxis = i === 0;
-    if (isAxis) continue;
-    parts.push(`<line x1="${gx}" y1="${pad}" x2="${gx}" y2="${size - pad}" stroke="#e8eef5" stroke-width="1"/>`);
-    parts.push(`<line x1="${pad}" y1="${gy}" x2="${size - pad}" y2="${gy}" stroke="#e8eef5" stroke-width="1"/>`);
+    parts.push(`<line x1="${gx}" y1="${pad}" x2="${gx}" y2="${size - pad}" stroke="#dae8e3" stroke-width="1"/>`);
+    parts.push(`<line x1="${pad}" y1="${gy}" x2="${size - pad}" y2="${gy}" stroke="#dae8e3" stroke-width="1"/>`);
   }
 
-  // axes
   const [ox, oy] = worldToSvg(0, 0, size);
   parts.push(`<line x1="${pad}" y1="${oy}" x2="${size - pad}" y2="${oy}" stroke="#333" stroke-width="1.6"/>`);
   parts.push(`<line x1="${ox}" y1="${pad}" x2="${ox}" y2="${size - pad}" stroke="#333" stroke-width="1.6"/>`);
-
-  // arrow heads
   parts.push(`<polygon points="${size - pad},${oy} ${size - pad - 7},${oy - 4} ${size - pad - 7},${oy + 4}" fill="#333"/>`);
   parts.push(`<polygon points="${ox},${pad} ${ox - 4},${pad + 7} ${ox + 4},${pad + 7}" fill="#333"/>`);
 
-  // axis labels
+  // グラフの軸数字、ラベルを大きく（font-size="14"等）
   if (!compact) {
-    parts.push(`<text x="${size - pad - 2}" y="${oy - 8}" font-size="12" font-weight="700" fill="#333" text-anchor="end">x</text>`);
-    parts.push(`<text x="${ox + 8}" y="${pad + 12}" font-size="12" font-weight="700" fill="#333">y</text>`);
-
+    parts.push(`<text x="${size - pad - 2}" y="${oy - 8}" font-size="15" font-weight="700" fill="#333" text-anchor="end">x</text>`);
+    parts.push(`<text x="${ox + 8}" y="${pad + 12}" font-size="15" font-weight="700" fill="#333">y</text>`);
     for (let i = min; i <= max; i++) {
       if (i === 0) continue;
-      if (compact && Math.abs(i) % 2 !== 0) continue;
       const [tx] = worldToSvg(i, 0, size);
       const [, ty] = worldToSvg(0, i, size);
-      parts.push(`<text x="${tx}" y="${oy + 14}" font-size="10" fill="#666" text-anchor="middle">${i}</text>`);
-      parts.push(`<text x="${ox - 6}" y="${ty + 4}" font-size="10" fill="#666" text-anchor="end">${i}</text>`);
-      // ticks
+      parts.push(`<text x="${tx}" y="${oy + 18}" font-size="14" fill="#555" text-anchor="middle">${i}</text>`);
+      parts.push(`<text x="${ox - 6}" y="${ty + 4}" font-size="14" fill="#555" text-anchor="end">${i}</text>`);
       parts.push(`<line x1="${tx}" y1="${oy - 3}" x2="${tx}" y2="${oy + 3}" stroke="#333" stroke-width="1"/>`);
       parts.push(`<line x1="${ox - 3}" y1="${ty}" x2="${ox + 3}" y2="${ty}" stroke="#333" stroke-width="1"/>`);
+      occupied.push({ x: tx - 8, y: oy + 4, w: 18, h: 14 });
+      occupied.push({ x: ox - 24, y: ty - 7, w: 18, h: 14 });
+    }
+  } else {
+    for (let i = min; i <= max; i += 2) {
+      if (i === 0) continue;
+      const [tx] = worldToSvg(i, 0, size);
+      const [, ty] = worldToSvg(0, i, size);
+      parts.push(`<text x="${tx}" y="${oy + 16}" font-size="14" fill="#444" text-anchor="middle">${i}</text>`);
+      parts.push(`<text x="${ox - 5}" y="${ty + 5}" font-size="14" fill="#444" text-anchor="end">${i}</text>`);
     }
   }
 
-  // asymptotes
   if (showAsymptotes) {
     const asy = asymptotesOf(form, params);
     for (const a of asy) {
       if (a.type === 'v') {
         if (a.value < min || a.value > max) continue;
         const [ax] = worldToSvg(a.value, 0, size);
-        parts.push(`<line x1="${ax}" y1="${pad}" x2="${ax}" y2="${size - pad}" stroke="#c8241a" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.85"/>`);
-        if (!compact) {
-          parts.push(`<text x="${ax + 4}" y="${pad + 14}" font-size="10" fill="#c8241a" font-weight="700">x=${a.value}</text>`);
-        }
+        parts.push(`<line x1="${ax}" y1="${pad}" x2="${ax}" y2="${size - pad}" stroke="#c83025" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.85"/>`);
+        occupied.push({ x: ax - 3, y: pad, w: 6, h: size - 2 * pad });
       } else {
         if (a.value < min || a.value > max) continue;
         const [, ay] = worldToSvg(0, a.value, size);
-        parts.push(`<line x1="${pad}" y1="${ay}" x2="${size - pad}" y2="${ay}" stroke="#c8241a" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.85"/>`);
-        if (!compact) {
-          parts.push(`<text x="${pad + 4}" y="${ay - 5}" font-size="10" fill="#c8241a" font-weight="700">y=${a.value}</text>`);
-        }
+        parts.push(`<line x1="${pad}" y1="${ay}" x2="${size - pad}" y2="${ay}" stroke="#c83025" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.85"/>`);
+        occupied.push({ x: pad, y: ay - 3, w: size - 2 * pad, h: 6 });
       }
     }
   }
 
-  // curve path(s)
   const exclude = domainOf(form, params).exclude;
   const isHyperbola = form === 'kx' || form === 'kxp' || form === 'kxpq';
 
@@ -506,7 +615,6 @@ function buildGraphSvg(form, params, opts = {}) {
     const pts = [];
     let penUp = true;
     for (let x = xStart; x <= xEnd + 1e-9; x += step) {
-      // skip near excluded asymptotes
       let nearAsy = false;
       for (const ex of exclude) {
         if (Math.abs(x - ex) < 0.08) nearAsy = true;
@@ -516,12 +624,7 @@ function buildGraphSvg(form, params, opts = {}) {
         continue;
       }
       const y = evalFn(form, params, x);
-      if (!Number.isFinite(y) || Math.abs(y) > 20) {
-        penUp = true;
-        continue;
-      }
-      // clip slightly outside view
-      if (y < min - 1 || y > max + 1) {
+      if (!Number.isFinite(y) || Math.abs(y) > 20 || y < min - 1 || y > max + 1) {
         penUp = true;
         continue;
       }
@@ -537,39 +640,59 @@ function buildGraphSvg(form, params, opts = {}) {
   }
 
   const step = isHyperbola ? 0.04 : 0.06;
-
   if (isHyperbola && exclude.length) {
     const ex = exclude[0];
-    // left branch
     const left = buildPath(min, ex - 0.12, step);
     const right = buildPath(ex + 0.12, max, step);
-    if (left) parts.push(`<path d="${left}" fill="none" stroke="#1a5084" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`);
-    if (right) parts.push(`<path d="${right}" fill="none" stroke="#1a5084" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`);
+    if (left) parts.push(`<path d="${left}" fill="none" stroke="#1a5c78" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`);
+    if (right) parts.push(`<path d="${right}" fill="none" stroke="#1a5c78" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`);
   } else {
     const d = buildPath(min, max, step);
-    if (d) parts.push(`<path d="${d}" fill="none" stroke="#1a5084" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`);
+    if (d) parts.push(`<path d="${d}" fill="none" stroke="#1a5c78" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`);
   }
 
-  // integer points
-  if (showPoints) {
-    const pts = samplePoints(form, params, compact ? 4 : 6);
-    for (const pt of pts) {
-      if (pt.x < min || pt.x > max || pt.y < min || pt.y > max) continue;
-      const [sx, sy] = worldToSvg(pt.x, pt.y, size);
-      parts.push(`<circle cx="${sx}" cy="${sy}" r="${compact ? 3.2 : 4}" fill="#c8241a" stroke="#fff" stroke-width="1.2"/>`);
-      if (!compact) {
-        const label = `(${pt.x}, ${pt.y})`;
-        // place label to avoid edge overflow
-        let lx = sx + 6;
-        let ly = sy - 8;
-        let anchor = 'start';
-        if (sx > size * 0.62) {
-          lx = sx - 6;
-          anchor = 'end';
-        }
-        if (sy < pad + 20) ly = sy + 14;
-        parts.push(`<text x="${lx}" y="${ly}" font-size="10" font-weight="700" fill="#c8241a" text-anchor="${anchor}">${label}</text>`);
-      }
+  // 描画する点は、特徴点と primaryPoint に限定する
+  const features = getGraphFeatures(form, params);
+  const pts = [];
+  if (features.vertex) pts.push({ ...features.vertex, primary: true });
+  if (features.yIntercept) pts.push({ ...features.yIntercept, primary: true });
+  features.xIntercepts.forEach((pt) => pts.push({ ...pt, primary: true }));
+  if (primaryPoint) pts.push({ ...primaryPoint, primary: true });
+
+  const seen = new Set();
+  const uniquePts = [];
+  for (const pt of pts) {
+    const key = `${pt.x},${pt.y}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniquePts.push(pt);
+  }
+
+  for (const pt of uniquePts) {
+    if (pt.x < min || pt.x > max || pt.y < min || pt.y > max) continue;
+    const [sx, sy] = worldToSvg(pt.x, pt.y, size);
+    const r = compact ? 4 : 5;
+    parts.push(`<circle cx="${sx}" cy="${sy}" r="${r}" fill="#c83025" stroke="#fff" stroke-width="1.5"/>`);
+    occupied.push({ x: sx - r - 1, y: sy - r - 1, w: 2 * r + 2, h: 2 * r + 2 });
+
+    if (showLabels && pt.primary) {
+      const label = `(${pt.x}, ${pt.y})`;
+      const fs = 14; // プロットの座標文字も大きく
+      const w = estimateTextWidth(label, fs);
+      const h = fs + 2;
+      const placed = placeLabel(
+        [
+          { x: sx + 7, y: sy - 8, w, h, anchor: 'start' },
+          { x: sx - 7, y: sy - 8, w, h, anchor: 'end' },
+          { x: sx + 7, y: sy + 14, w, h, anchor: 'start' },
+          { x: sx - 7, y: sy + 14, w, h, anchor: 'end' },
+          { x: sx, y: sy - 12, w, h, anchor: 'middle' },
+          { x: sx, y: sy + 16, w, h, anchor: 'middle' }
+        ],
+        occupied,
+        size
+      );
+      parts.push(`<text x="${placed.x}" y="${placed.y}" font-size="${fs}" font-weight="900" fill="#c83025" text-anchor="${placed.anchor}">${label}</text>`);
     }
   }
 
@@ -578,87 +701,325 @@ function buildGraphSvg(form, params, opts = {}) {
 }
 
 /* ========== Explanations ========== */
-function buildExplanation(form, params, mode) {
-  const f = formatFormula(form, params, false).main;
+
+function pickPrimaryPoint(form, params) {
+  const pts = samplePoints(form, params, 6);
+  if (form === 'ax' || form === 'axb' || form === 'ax2' || form === 'ax2q') {
+    return pts.find(p => p.x !== 0) || pts[0];
+  } else if (form === 'axp2' || form === 'axp2q') {
+    return pts.find(p => p.x !== params.p) || pts[0];
+  }
+  return pts[0];
+}
+
+function buildExplanation(form, params, mode, pt) {
+  const tex = formulaTex(form, params);
   const { a, b, p, q, k } = params;
-  const lines = [];
+  const ja = [];
+  const en = [];
 
   if (mode === 'g2f') {
-    lines.push(`【答え / Answer】 ${f}`);
-    const dom = domainOf(form, params);
-    if (form.startsWith('k')) {
-      lines.push(`定義域 / Domain: ${dom.ja}`);
-    }
-    lines.push('');
-    lines.push('【解説 / Explanation】');
-  } else {
-    lines.push('【解説 / Explanation】式から読み取れる特徴 / Features from the formula:');
-  }
+    switch (form) {
+      case 'ax': {
+        ja.push(`原点 $(0, 0)$ を通る直線なので、$y = ax$ と置けます。`);
+        en.push(`Since it is a line passing through the origin $(0, 0)$, it can be written as $y = ax$.`);
+        
+        ja.push(`グラフを見ると、通る点として $(${pt.x}, ${pt.y})$ が読み取れます。`);
+        en.push(`From the graph, we can read the passing point $(${pt.x}, ${pt.y})$.`);
+        
+        ja.push(`式に $x = ${pt.x}, y = ${pt.y}$ を代入して $a$ を求めます：<br> $${pt.y} = ${formatCoeff(pt.x, 'a')}$ 　より　 $a = ${a}$`);
+        en.push(`Substitute $x = ${pt.x}$ and $y = ${pt.y}$ to find $a$:<br> $${pt.y} = ${formatCoeff(pt.x, 'a')} \\implies a = ${a}$`);
 
-  switch (form) {
-    case 'ax':
-      lines.push(`・原点 (0, 0) を通る直線 / Line through the origin (0, 0)`);
-      lines.push(`・傾き（斜率）a = ${a} ${a > 0 ? '（右上がり / rising to the right）' : '（右下がり / falling to the right）'}`);
-      lines.push(`・例: x = 1 のとき y = ${a} → 点 (1, ${a})`);
-      break;
-    case 'axb':
-      lines.push(`・傾き a = ${a} ${a > 0 ? '（右上がり）' : '（右下がり）'} / slope a = ${a}`);
-      lines.push(`・y切片 b = ${b} → 点 (0, ${b}) を通る / y-intercept b = ${b}`);
-      lines.push(`・x = 1 のとき y = ${a + b} → 点 (1, ${a + b})`);
-      break;
-    case 'ax2':
-      lines.push(`・頂点は原点 (0, 0) / Vertex at (0, 0)`);
-      lines.push(`・a = ${a} ${a > 0 ? '→ 下に凸（上に開く）/ opens upward' : '→ 上に凸（下に開く）/ opens downward'}`);
-      lines.push(`・|a| が大きいほど急な放物線 / larger |a| → steeper parabola`);
-      lines.push(`・例: x = 1 → y = ${a}, x = 2 → y = ${a * 4}`);
-      break;
-    case 'ax2q':
-      lines.push(`・頂点は (0, ${q}) / Vertex at (0, ${q})`);
-      lines.push(`・y = ax² を y 方向に ${q > 0 ? q + ' だけ上' : Math.abs(q) + ' だけ下'}へ平行移動`);
-      lines.push(`  / Vertical shift of y = ax² by ${q}`);
-      lines.push(`・a = ${a} ${a > 0 ? '→ 下に凸' : '→ 上に凸'}`);
-      break;
-    case 'axp2':
-      lines.push(`・頂点は (${p}, 0) / Vertex at (${p}, 0)`);
-      lines.push(`・y = ax² を x 方向に ${p > 0 ? p + ' だけ右' : Math.abs(p) + ' だけ左'}へ平行移動`);
-      lines.push(`  / Horizontal shift of y = ax² by ${p}`);
-      lines.push(`・a = ${a} ${a > 0 ? '→ 下に凸' : '→ 上に凸'}`);
-      lines.push(`・注意: (x − p) の p の符号 / Watch the sign inside (x − p)`);
-      break;
-    case 'axp2q':
-      lines.push(`・頂点は (${p}, ${q}) / Vertex at (${p}, ${q})`);
-      lines.push(`・y = ax² を x 方向に ${p}、y 方向に ${q} 平行移動`);
-      lines.push(`  / Shift y = ax² by (${p}, ${q})`);
-      lines.push(`・a = ${a} ${a > 0 ? '→ 下に凸' : '→ 上に凸'}`);
-      lines.push(`・符号に注意: p と q の両方 / Check signs of both p and q`);
-      break;
-    case 'kx':
-      lines.push(`・漸近線: x = 0（y軸）, y = 0（x軸）/ Asymptotes: x=0, y=0`);
-      lines.push(`・k = ${k} ${k > 0 ? '→ 第1・第3象限 / quadrants I & III' : '→ 第2・第4象限 / quadrants II & IV'}`);
-      lines.push(`・|k| が大きいほど原点から離れる / larger |k| → farther from origin`);
-      lines.push(`・定義域: x ≠ 0 / Domain: x ≠ 0`);
-      if (Math.abs(k) >= 1) {
-        lines.push(`・例: x = 1 → y = ${k}, x = ${k > 0 ? k : -Math.abs(k)} → y = ${k > 0 ? 1 : -1}（整数点）`);
+        ja.push(`（傾き $a = ${a}$ が${a > 0 ? '正なので右上がり' : '負なので右下がり'}の直線になっています）`);
+        en.push(`(The slope $a = ${a}$ is ${a > 0 ? 'positive, so the line rises to the right' : 'negative, so the line falls to the right'}.)`);
+
+        ja.push(`<strong>（別解）</strong>グラフ上の点 $(0, 0)$ と 点 $(${pt.x}, ${pt.y})$ を用いて傾き $a$ を求めます。`);
+        en.push(`<strong>(Alternative)</strong> Find the slope $a$ using the origin $(0, 0)$ and point $(${pt.x}, ${pt.y})$.`);
+
+        ja.push(`傾き $a$ は「$y$の増加量 $\\div$ $x$の増加量」なので、<br> $a = \\dfrac{${pt.y} - 0}{${pt.x} - 0} = \\dfrac{${pt.y}}{${pt.x}} = ${a}$ 　と計算できます。`);
+        en.push(`The slope $a$ is (change in y) $\\div$ (change in x), so:<br> $a = \\dfrac{${pt.y} - 0}{${pt.x} - 0} = \\dfrac{${pt.y}}{${pt.x}} = ${a}$.`);
+        break;
       }
-      break;
-    case 'kxp':
-      lines.push(`・漸近線: x = ${p}, y = 0 / Asymptotes: x = ${p}, y = 0`);
-      lines.push(`・y = k/x を x 方向に ${p} 平行移動 / Horizontal shift of y = k/x by ${p}`);
-      lines.push(`・k = ${k} ${k > 0 ? '（同符号象限側）' : '（異符号象限側）'}`);
-      lines.push(`・定義域: x ≠ ${p} / Domain: x ≠ ${p}`);
-      lines.push(`・注意: 分母 (x − p) の p の符号 / Watch the sign of p in (x − p)`);
-      break;
-    case 'kxpq':
-      lines.push(`・漸近線: x = ${p}, y = ${q} / Asymptotes: x = ${p}, y = ${q}`);
-      lines.push(`・y = k/x を点 (${p}, ${q}) へ平行移動 / Shift of y = k/x to center (${p}, ${q})`);
-      lines.push(`・標準形: y − (${q}) = ${k}/(x − (${p}))`);
-      lines.push(`・k = ${k}`);
-      lines.push(`・定義域: x ≠ ${p} / Domain: x ≠ ${p}`);
-      lines.push(`・p と q の符号・入れ替えに注意 / Watch signs and swap of p, q`);
-      break;
+      case 'axb': {
+        ja.push(`一般に、直線は $y = ax + b$ と置けます。`);
+        en.push(`Generally, a line can be written as $y = ax + b$.`);
+
+        ja.push(`$y$切片 $b$ は、グラフが$y$軸と交わる点の$y$座標です。グラフを見ると点 $(0, ${b})$ で交わっているので $b = ${b}$ です。`);
+        en.push(`The y-intercept $b$ is ${b} since the graph intersects the y-axis at $(0, ${b})$.`);
+
+        ja.push(`$y = ax ${latexSigned(b)}$ に、読み取れる通る点 $(${pt.x}, ${pt.y})$ を代入して $a$ を求めます：`);
+        en.push(`Substitute the point $(${pt.x}, ${pt.y})$ into $y = ax ${latexSigned(b)}$ to find $a$:`);
+        
+        const left = pt.y - b;
+        ja.push(`$${pt.y} = ${formatCoeff(pt.x, 'a')} ${latexSigned(b)}$ 　より　 $${left} = ${formatCoeff(pt.x, 'a')}$ 　となるので　 $a = ${a}$`);
+        en.push(`$${pt.y} = ${formatCoeff(pt.x, 'a')} ${latexSigned(b)} \\implies ${left} = ${formatCoeff(pt.x, 'a')} \\implies a = ${a}$`);
+
+        const pA = 0 < pt.x ? {x:0, y:b} : pt;
+        const pB = 0 < pt.x ? pt : {x:0, y:b};
+        const dx2 = pB.x - pA.x;
+        const dy2 = pB.y - pA.y;
+        ja.push(`<strong>（別解）</strong> グラフ上の点 $(${pA.x}, ${pA.y})$ と 点 $(${pB.x}, ${pB.y})$ を用いて傾きを求めます。`);
+        en.push(`<strong>(Alternative)</strong> Find the slope using points $(${pA.x}, ${pA.y})$ and $(${pB.x}, ${pB.y})$.`);
+
+        ja.push(`傾き $a$ は「$y$の増加量 $\\div$ $x$の増加量」なので、<br> $a = \\dfrac{${pB.y} - ${paren(pA.y)}}{${pB.x} - ${paren(pA.x)}} = \\dfrac{${dy2}}{${dx2}} = ${a}$ 　と計算できます。`);
+        en.push(`The slope $a$ is (change in y) $\\div$ (change in x), so:<br> $a = \\dfrac{${pB.y} - ${paren(pA.y)}}{${pB.x} - ${paren(pA.x)}} = \\dfrac{${dy2}}{${dx2}} = ${a}$.`);
+        break;
+      }
+      case 'ax2': {
+        ja.push(`一般に、二次関数 $y = ax^2$ （頂点が原点）と置けます。`);
+        en.push(`Generally, a quadratic function with its vertex at the origin is $y = ax^2$.`);
+
+        ja.push(`グラフを見ると、通る点として $(${pt.x}, ${pt.y})$ が読み取れます。`);
+        en.push(`From the graph, we can read the passing point $(${pt.x}, ${pt.y})$.`);
+
+        ja.push(`$y = ax^2$ に $x = ${pt.x}, y = ${pt.y}$ を代入して $a$ を求めます：`);
+        en.push(`Substitute $x = ${pt.x}$ and $y = ${pt.y}$ to find $a$:`);
+
+        ja.push(`$${pt.y} = a \\times ${paren(pt.x)}^2$ 　より　 $${pt.y} = ${formatCoeff(pt.x * pt.x, 'a')}$ 　となるので　 $a = ${a}$`);
+        en.push(`$${pt.y} = a \\times ${paren(pt.x)}^2 \\implies ${pt.y} = ${formatCoeff(pt.x * pt.x, 'a')} \\implies a = ${a}$`);
+
+        ja.push(`（$a = ${a}$ が${a > 0 ? '正なので下に凸' : '負なので上に凸'}のグラフです）`);
+        en.push(`(Since $a = ${a}$ is ${a > 0 ? 'positive, it is convex downward' : 'negative, it is convex upward'}.)`);
+
+        if (Math.abs(pt.x) === 1) {
+          ja.push(`<strong>（別解）</strong> 頂点から$x$軸方向に $1$ または $-1$ 進むと、$y$軸方向に $a \\times (\\pm 1)^2 = a$ 進む性質があります。`);
+          en.push(`<strong>(Alternative)</strong> Moving $\\pm 1$ horizontally from the vertex changes $y$ by $a \\times (\\pm 1)^2 = a$.`);
+          ja.push(`頂点 $(0,0)$ から$x$軸方向に $${pt.x}$ 進むと、$y$は $${pt.y}$ 変化しているので、$a = ${a}$ とすぐに分かります。`);
+          en.push(`Moving $${pt.x}$ horizontally from $(0,0)$, $y$ changes by $${pt.y}$, so $a = ${a}$.`);
+        }
+        break;
+      }
+      case 'ax2q': {
+        ja.push(`一般に、二次関数 $y = ax^2 + q$ では、$(x=0)$ のときに頂点 $(0, q)$ をとります。`);
+        en.push(`Generally, the vertex of $y = ax^2 + q$ is $(0, q)$.`);
+
+        ja.push(`グラフを見ると頂点は $(0, ${q})$ なので、$q = ${q}$ です。`);
+        en.push(`From the graph, the vertex is $(0, ${q})$, so $q = ${q}$.`);
+
+        ja.push(`$y = ax^2 ${latexSigned(q)}$ に通る点 $(${pt.x}, ${pt.y})$ の座標を代入して $a$ を求めます：`);
+        en.push(`Substitute the point $(${pt.x}, ${pt.y})$ into $y = ax^2 ${latexSigned(q)}$ to find $a$:`);
+
+        const leftQ = pt.y - q;
+        ja.push(`$${pt.y} = a \\times ${paren(pt.x)}^2 ${latexSigned(q)}$ 　より　 $${leftQ} = ${formatCoeff(pt.x * pt.x, 'a')}$ 　となるので　 $a = ${a}$`);
+        en.push(`$${pt.y} = a \\times ${paren(pt.x)}^2 ${latexSigned(q)} \\implies ${leftQ} = ${formatCoeff(pt.x * pt.x, 'a')} \\implies a = ${a}$`);
+
+        if (Math.abs(pt.x) === 1) {
+          ja.push(`<strong>（別解）</strong> 頂点 $(0,${q})$ から$x$方向に $1$ 進むと、点は $(${pt.x}, ${pt.y})$ となり、$y$は ${a}$ 変化しているので、$a = ${a}$ と分かります。`);
+          en.push(`<strong>(Alternative)</strong> Moving $1$ horizontally from $(0,${q})$ changes $y$ by ${a} to reach $(${pt.x}, ${pt.y})$, so $a = ${a}$.`);
+        }
+        break;
+      }
+      case 'axp2': {
+        ja.push(`一般に、二次関数 $y = a(x - p)^2$ では、頂点は $(p, 0)$ となります。`);
+        en.push(`Generally, the vertex of $y = a(x - p)^2$ is $(p, 0)$.`);
+
+        ja.push(`グラフを見ると頂点は $(${p}, 0)$ なので、$p = ${p}$ です。`);
+        en.push(`From the graph, the vertex is $(${p}, 0)$, so $p = ${p}$.`);
+
+        ja.push(`$y = a(x ${latexSigned(-p)})^2$ に通る点 $(${pt.x}, ${pt.y})$ を代入して $a$ を求めます：`);
+        en.push(`Substitute the point $(${pt.x}, ${pt.y})$ into $y = a(x ${latexSigned(-p)})^2$ to find $a$:`);
+
+        const insideP = pt.x - p;
+        ja.push(`$${pt.y} = a \\times (${pt.x} ${latexSigned(-p)})^2$ 　より　 $${pt.y} = ${formatCoeff(insideP * insideP, 'a')}$ 　となるので　 $a = ${a}$`);
+        en.push(`$${pt.y} = a \\times (${pt.x} ${latexSigned(-p)})^2 \\implies ${pt.y} = ${formatCoeff(insideP * insideP, 'a')} \\implies a = ${a}$`);
+
+        if (Math.abs(pt.x - p) === 1) {
+          ja.push(`<strong>（別解）</strong> 頂点 $(${p},0)$ から$x$方向に $1$ 進むと、点は $(${pt.x}, ${pt.y})$ となり、$y$は ${a}$ 変化しているので、$a = ${a}$ と分かります。`);
+          en.push(`<strong>(Alternative)</strong> Moving $1$ horizontally from $(${p},0)$ changes $y$ by ${a} to reach $(${pt.x}, ${pt.y})$, so $a = ${a}$.`);
+        }
+        break;
+      }
+      case 'axp2q': {
+        ja.push(`一般に、二次関数 $y = a(x - p)^2 + q$ では、頂点は $(p, q)$ となります。`);
+        en.push(`Generally, the vertex of $y = a(x - p)^2 + q$ is $(p, q)$.`);
+
+        ja.push(`グラフを見ると頂点は $(${p}, ${q})$ なので、$p = ${p}$、$q = ${q}$ です。`);
+        en.push(`From the graph, the vertex is $(${p}, ${q})$, so $p = ${p}, q = ${q}$.`);
+
+        ja.push(`$y = a(x ${latexSigned(-p)})^2 ${latexSigned(q)}$ に通る点 $(${pt.x}, ${pt.y})$ を代入して $a$ を求めます：`);
+        en.push(`Substitute the point $(${pt.x}, ${pt.y})$ into $y = a(x ${latexSigned(-p)})^2 ${latexSigned(q)}$ to find $a$:`);
+
+        const insidePQ = pt.x - p;
+        const leftPQ = pt.y - q;
+        ja.push(`$${pt.y} = a \\times (${pt.x} ${latexSigned(-p)})^2 ${latexSigned(q)}$ 　より　 $${leftPQ} = ${formatCoeff(insidePQ * insidePQ, 'a')}$ 　となるので　 $a = ${a}$`);
+        en.push(`$${pt.y} = a \\times (${pt.x} ${latexSigned(-p)})^2 ${latexSigned(q)} \\implies ${leftPQ} = ${formatCoeff(insidePQ * insidePQ, 'a')} \\implies a = ${a}$`);
+
+        if (Math.abs(pt.x - p) === 1) {
+          ja.push(`<strong>（別解）</strong> 頂点 $(${p},${q})$ から$x$方向に $1$ 進むと、点は $(${pt.x}, ${pt.y})$ となり、$y$は ${a}$ 変化しているので、$a = ${a}$ と分かります。`);
+          en.push(`<strong>(Alternative)</strong> Moving $1$ horizontally from $(${p},${q})$ changes $y$ by ${a} to reach $(${pt.x}, ${pt.y})$, so $a = ${a}$.`);
+        }
+        break;
+      }
+      case 'kx': {
+        ja.push(`一般に、$x$軸と$y$軸を漸近線とする双曲線は $y = \\dfrac{k}{x}$ （$k \\neq 0$） と置けます。`);
+        en.push(`Generally, a hyperbola with the axes as asymptotes can be written as $y = \\dfrac{k}{x}$ ($k \\neq 0$).`);
+
+        ja.push(`ここで、$k$ が正だとグラフは第1象限と第3象限（右上と左下）に、$k$ が負だと第2象限と第4象限（左上と右下）に現れます。`);
+        en.push(`If $k > 0$, the graph is in quadrants I and III (top-right, bottom-left). If $k < 0$, it is in II and IV (top-left, bottom-right).`);
+
+        ja.push(`グラフを見ると、通る点として $(${pt.x}, ${pt.y})$ が読み取れます。`);
+        en.push(`From the graph, we can read the passing point $(${pt.x}, ${pt.y})$.`);
+
+        ja.push(`$x = ${pt.x}, y = ${pt.y}$ を代入して $k$ を求めます：<br> $${pt.y} = \\dfrac{k}{${pt.x}}$ 　より　 $k = ${pt.y} \\times ${paren(pt.x)} = ${k}$`);
+        en.push(`Substitute $x = ${pt.x}$ and $y = ${pt.y}$ to find $k$:<br> $${pt.y} = \\dfrac{k}{${pt.x}} \\implies k = ${pt.y} \\times ${paren(pt.x)} = ${k}$`);
+        break;
+      }
+      case 'kxp': {
+        ja.push(`一般に、$y = \\dfrac{k}{x - p}$ は漸近線が $x = p$ と $y = 0$ の双曲線です。`);
+        en.push(`Generally, $y = \\dfrac{k}{x - p}$ is a hyperbola with asymptotes $x = p$ and $y = 0$.`);
+
+        ja.push(`グラフを見ると、垂直な漸近線が $x = ${p}$ なので、$p = ${p}$ です。`);
+        en.push(`From the graph, the vertical asymptote is $x = ${p}$, so $p = ${p}$.`);
+
+        ja.push(`ここで、$k$ が正だとグラフは漸近線を基準に右上と左下に、$k$ が負だと左上と右下に現れます。`);
+        en.push(`If $k > 0$, it appears top-right and bottom-left relative to the asymptotes. If $k < 0$, top-left and bottom-right.`);
+
+        ja.push(`$y = \\dfrac{k}{x ${latexSigned(-p)}}$ に通る点 $(${pt.x}, ${pt.y})$ を代入して $k$ を求めます：`);
+        en.push(`Substitute the passing point $(${pt.x}, ${pt.y})$ into $y = \\dfrac{k}{x ${latexSigned(-p)}}$ to find $k$:`);
+
+        const denom = pt.x - p;
+        ja.push(`$${pt.y} = \\dfrac{k}{${pt.x} ${latexSigned(-p)}} = \\dfrac{k}{${denom}}$ 　より　 $k = ${pt.y} \\times ${paren(denom)} = ${k}$`);
+        en.push(`$${pt.y} = \\dfrac{k}{${denom}} \\implies k = ${pt.y} \\times ${paren(denom)} = ${k}$`);
+        break;
+      }
+      case 'kxpq': {
+        ja.push(`一般に、$y = \\dfrac{k}{x - p} + q$ は漸近線が $x = p$ と $y = q$ の双曲線です。`);
+        en.push(`Generally, $y = \\dfrac{k}{x - p} + q$ is a hyperbola with asymptotes $x = p$ and $y = q$.`);
+
+        ja.push(`グラフを見ると、漸近線が $x = ${p}, y = ${q}$ なので、$p = ${p}, q = ${q}$ です。`);
+        en.push(`From the graph, the asymptotes are $x = ${p}$ and $y = ${q}$, so $p = ${p}, q = ${q}$.`);
+
+        ja.push(`ここで、$k$ が正だとグラフは漸近線を基準に右上と左下に、$k$ が負だと左上と右下に現れます。`);
+        en.push(`If $k > 0$, it appears top-right and bottom-left relative to the asymptotes. If $k < 0$, top-left and bottom-right.`);
+
+        ja.push(`$y = \\dfrac{k}{x ${latexSigned(-p)}} ${latexSigned(q)}$ に通る点 $(${pt.x}, ${pt.y})$ を代入して $k$ を求めます：`);
+        en.push(`Substitute the passing point $(${pt.x}, ${pt.y})$ into $y = \\dfrac{k}{x ${latexSigned(-p)}} ${latexSigned(q)}$ to find $k$:`);
+
+        const num = pt.y - q;
+        const den = pt.x - p;
+        ja.push(`$${pt.y} = \\dfrac{k}{${pt.x} ${latexSigned(-p)}} ${latexSigned(q)}$ 　より　 $${num} = \\dfrac{k}{${den}}$ 　となるので　 $k = ${num} \\times ${paren(den)} = ${k}$`);
+        en.push(`$${pt.y} = \\dfrac{k}{${den}} ${latexSigned(q)} \\implies ${num} = \\dfrac{k}{${den}} \\implies k = ${k}$`);
+        break;
+      }
+    }
+  } else {
+    // mode === 'f2g'
+    switch(form) {
+      case 'ax':
+        ja.push(`これは原点 $(0, 0)$ を通る直線です。`);
+        en.push(`It is a line passing through the origin $(0, 0)$.`);
+        ja.push(`傾きが $a = ${a}$ であり${a > 0 ? '正なので右上がりの直線' : '負なので右下がりの直線'}になります。`);
+        en.push(`The slope is $a = ${a}$, which is ${a > 0 ? 'positive (rising to the right)' : 'negative (falling to the right)'}.`);
+        ja.push(`また、$x = 1$ のとき $y = ${a}$ なので、点 $(1, ${a})$ を通るグラフを選びます。`);
+        en.push(`When $x = 1$, $y = ${a}$, so choose the graph passing through $(1, ${a})$.`);
+        break;
+      case 'axb':
+        ja.push(`これは $y$切片が $b = ${b}$ なので、$y$軸上の点 $(0, ${b})$ を通る直線です。`);
+        en.push(`The y-intercept is $b = ${b}$, so it passes through $(0, ${b})$ on the y-axis.`);
+        ja.push(`傾きが $a = ${a}$ であり${a > 0 ? '正なので右上がり' : '負なので右下がり'}の直線になります。`);
+        en.push(`The slope is $a = ${a}$, which is ${a > 0 ? 'positive (rising)' : 'negative (falling)'}.`);
+        ja.push(`例えば、$x = 1$ のとき $y = ${a + b}$ なので、点 $(1, ${a + b})$ を通るグラフを選びます。`);
+        en.push(`For example, when $x = 1$, $y = ${a + b}$, so choose the graph passing through $(1, ${a + b})$.`);
+        break;
+      case 'ax2':
+        ja.push(`これは頂点が原点 $(0, 0)$ の放物線です。`);
+        en.push(`It is a parabola with its vertex at the origin $(0, 0)$.`);
+        ja.push(`$a = ${a}$ が${a > 0 ? '正なので下に凸（上に開く）' : '負なので上に凸（下に開く）'}のグラフになります。`);
+        en.push(`Since $a = ${a}$ is ${a > 0 ? 'positive, it opens upward' : 'negative, it opens downward'}.`);
+        ja.push(`また、$x = 1$ のとき $y = ${a}$ なので、点 $(1, ${a})$ を通るグラフを選びます。`);
+        en.push(`When $x = 1$, $y = ${a}$, so choose the graph passing through $(1, ${a})$.`);
+        break;
+      case 'ax2q':
+        ja.push(`これは $y = ${latexCoeff(a, 'x^2')}$ を $y$軸方向に $q = ${q}$ だけ平行移動した放物線なので、頂点は $(0, ${q})$ です。`);
+        en.push(`It translates $y = ${latexCoeff(a, 'x^2')}$ by ${q} vertically, so the vertex is $(0, ${q})$.`);
+        ja.push(`$a = ${a}$ が${a > 0 ? '正なので下に凸（上に開く）' : '負なので上に凸（下に開く）'}のグラフになります。`);
+        en.push(`Since $a = ${a}$ is ${a > 0 ? 'positive, it opens upward' : 'negative, it opens downward'}.`);
+        ja.push(`また、$x = 1$ のとき $y = ${a + q}$ なので、点 $(1, ${a + q})$ を通るグラフを選びます。`);
+        en.push(`When $x = 1$, $y = ${a + q}$, so choose the graph passing through $(1, ${a + q})$.`);
+        break;
+      case 'axp2':
+        ja.push(`これは $y = ${latexCoeff(a, 'x^2')}$ を $x$軸方向に $p = ${p}$ だけ平行移動した放物線なので、頂点は $(${p}, 0)$ です。`);
+        en.push(`It translates $y = ${latexCoeff(a, 'x^2')}$ by ${p} horizontally, so the vertex is $(${p}, 0)$.`);
+        ja.push(`$a = ${a}$ が${a > 0 ? '正なので下に凸（上に開く）' : '負なので上に凸（下に開く）'}のグラフになります。`);
+        en.push(`Since $a = ${a}$ is ${a > 0 ? 'positive, it opens upward' : 'negative, it opens downward'}.`);
+        ja.push(`また、頂点から$x$が1ずれた $x = ${p + 1}$ のとき $y = ${a}$ なので、点 $(${p + 1}, ${a})$ を通るグラフを選びます。`);
+        en.push(`When $x = ${p + 1}$, $y = ${a}$, so choose the graph passing through $(${p + 1}, ${a})$.`);
+        break;
+      case 'axp2q':
+        ja.push(`これは $y = ${latexCoeff(a, 'x^2')}$ を $x$軸方向に $p = ${p}$、$y$軸方向に $q = ${q}$ だけ平行移動した放物線なので、頂点は $(${p}, ${q})$ です。`);
+        en.push(`It translates $y = ${latexCoeff(a, 'x^2')}$ by $p = ${p}$ and $q = ${q}$, so the vertex is $(${p}, ${q})$.`);
+        ja.push(`$a = ${a}$ が${a > 0 ? '正なので下に凸（上に開く）' : '負なので上に凸（下に開く）'}のグラフになります。`);
+        en.push(`Since $a = ${a}$ is ${a > 0 ? 'positive, it opens upward' : 'negative, it opens downward'}.`);
+        ja.push(`また、$x = ${p + 1}$ のとき $y = ${a + q}$ なので、点 $(${p + 1}, ${a + q})$ を通るグラフを選びます。`);
+        en.push(`When $x = ${p + 1}$, $y = ${a + q}$, so choose the graph passing through $(${p + 1}, ${a + q})$.`);
+        break;
+      case 'kx':
+        ja.push(`これは漸近線が $x = 0$ と $y = 0$ の双曲線です。`);
+        en.push(`It is a hyperbola with asymptotes $x = 0$ and $y = 0$.`);
+        ja.push(`関数の式の分子が ${k} で${k > 0 ? '正なので、グラフは第1象限と第3象限（右上と左下）に現れます。' : '負なので、グラフは第2象限と第4象限（左上と右下）に現れます。'}`);
+        en.push(`Since the numerator is ${k} (${k > 0 ? 'positive' : 'negative'}), it appears in quadrants ${k > 0 ? 'I and III (top-right and bottom-left)' : 'II and IV (top-left and bottom-right)'}.`);
+        ja.push(`また、$x = 1$ のとき $y = ${k}$ なので、点 $(1, ${k})$ を通るグラフを選びます。`);
+        en.push(`When $x = 1$, $y = ${k}$, so choose the graph passing through $(1, ${k})$.`);
+        break;
+      case 'kxp':
+        ja.push(`これは $y = \\dfrac{${k < 0 ? '-' : ''}${Math.abs(k)}}{x}$ を $x$軸方向に $p = ${p}$ だけ平行移動した双曲線なので、漸近線は $x = ${p}$ と $y = 0$ です。`);
+        en.push(`It translates $y = \\dfrac{${k < 0 ? '-' : ''}${Math.abs(k)}}{x}$ by ${p} horizontally, so asymptotes are $x = ${p}$ and $y = 0$.`);
+        ja.push(`関数の式の分子が ${k} で${k > 0 ? '正なので、漸近線を基準として右上と左下に現れます。' : '負なので、漸近線を基準として左上と右下に現れます。'}`);
+        en.push(`Since the numerator is ${k} (${k > 0 ? 'positive' : 'negative'}), it appears ${k > 0 ? 'top-right and bottom-left' : 'top-left and bottom-right'} relative to the asymptotes.`);
+        ja.push(`また、漸近線から$x$が1ずれた $x = ${p + 1}$ のとき $y = ${k}$ なので、点 $(${p + 1}, ${k})$ を通るグラフを選びます。`);
+        en.push(`When $x = ${p + 1}$, $y = ${k}$, so choose the graph passing through $(${p + 1}, ${k})$.`);
+        break;
+      case 'kxpq':
+        ja.push(`これは $y = \\dfrac{${k < 0 ? '-' : ''}${Math.abs(k)}}{x}$ を $x$軸方向に $p = ${p}$、$y$軸方向に $q = ${q}$ だけ平行移動した双曲線なので、漸近線は $x = ${p}$ と $y = ${q}$ です。`);
+        en.push(`It is translated by $p = ${p}$ and $q = ${q}$, so asymptotes are $x = ${p}$ and $y = ${q}$.`);
+        ja.push(`関数の式の分子が ${k} で${k > 0 ? '正なので、漸近線を基準として右上と左下に現れます。' : '負なので、漸近線を基準として左上と右下に現れます。'}`);
+        en.push(`Since the numerator is ${k} (${k > 0 ? 'positive' : 'negative'}), it appears ${k > 0 ? 'top-right and bottom-left' : 'top-left and bottom-right'} relative to the asymptotes.`);
+        ja.push(`また、$x = ${p + 1}$ のとき $y = ${k + q}$ なので、点 $(${p + 1}, ${k + q})$ を通るグラフを選びます。`);
+        en.push(`When $x = ${p + 1}$, $y = ${k + q}$, so choose the graph passing through $(${p + 1}, ${k + q})$.`);
+        break;
+    }
   }
 
-  return lines.join('\n');
+  return { ja, en };
+}
+
+function explanationToHtml(exp, isCorrect, correctTex, domainObj) {
+  const resultClass = isCorrect ? 'correct' : 'wrong';
+  const resultTitle = isCorrect 
+    ? `正解！ Correct! &nbsp;&rarr;&nbsp; <span class="math-ans">${renderKatex(correctTex)}</span>`
+    : `不正解... Incorrect... 正解は / Answer: &nbsp; <span class="math-ans">${renderKatex(correctTex)}</span>`;
+
+  let ansText = `【答え / Answer】 &nbsp; <span class="math-ans">${renderKatex(correctTex)}</span>`;
+  if (domainObj && domainObj.exclude.length > 0) {
+    ansText += ` &nbsp; <span style="font-size:0.85em; color:var(--muted); font-weight:normal;">(定義域 / domain: ${renderKatex(domainObj.ja)})</span>`;
+  }
+
+  const parse = (text) => text.replace(/\$\$([\s\S]+?)\$\$/g, (_, tex) => renderKatex(tex.trim(), true))
+                              .replace(/\$([^$]+)\$/g, (_, tex) => renderKatex(tex.trim(), false));
+
+  const lis = exp.ja.map((jLine, i) => {
+    const eLine = exp.en[i];
+    return `<li>
+      <div class="exp-li-ja">${parse(jLine)}</div>
+      <div class="exp-li-en">${parse(eLine)}</div>
+    </li>`;
+  }).join('');
+
+  return `
+    <div class="exp-box ${resultClass}">
+      <div class="exp-header">
+        <h3 class="exp-title">${resultTitle}</h3>
+        <button type="button" class="btn-next next-btn-exp">次へ / Next (Enter) ⏎</button>
+      </div>
+      <div class="exp-body">
+        <div class="exp-ans-line">${ansText}</div>
+        <div class="exp-expl-label">【解説 / Explanation】</div>
+        <ul class="exp-list">
+          ${lis}
+        </ul>
+      </div>
+    </div>
+  `;
 }
 
 /* ========== Problem generation ========== */
@@ -671,23 +1032,19 @@ function makeProblem() {
     correctParams = genParams(currentForm);
     distractors = genDistractors(currentForm, correctParams);
     if (distractors.length < 2) continue;
-
     signature = `${currentType}|${currentForm}|${currentMode}|${paramsKey(correctParams)}`;
     if (signature === lastSignature) continue;
-
-    // グラフが視野内で識別できるか軽くチェック
     const pts = samplePoints(currentForm, correctParams, 3);
-    if (currentForm.startsWith('k') && pts.length < 2) continue;
+    if ((currentForm === 'kx' || currentForm === 'kxp' || currentForm === 'kxpq') && pts.length < 2) continue;
     break;
   }
 
   const wrongTwo = shuffle(distractors).slice(0, 2);
   const optionsParams = shuffle([correctParams, ...wrongTwo]);
-  const correctIndex = optionsParams.findIndex(
-    (p) => paramsKey(p) === paramsKey(correctParams)
-  );
-
+  const correctIndex = optionsParams.findIndex((p) => paramsKey(p) === paramsKey(correctParams));
   lastSignature = signature;
+  
+  const pt = pickPrimaryPoint(currentForm, correctParams);
 
   return {
     form: currentForm,
@@ -696,7 +1053,8 @@ function makeProblem() {
     correctParams,
     optionsParams,
     correctIndex,
-    explanation: buildExplanation(currentForm, correctParams, currentMode)
+    primaryPoint: pt,
+    explanation: buildExplanation(currentForm, correctParams, currentMode, pt)
   };
 }
 
@@ -704,20 +1062,16 @@ function makeProblem() {
 function renderFormMenu() {
   const forms = FORM_OPTIONS[currentType];
   formMenu.innerHTML = forms
-    .map(
-      (f) =>
-        `<button type="button" class="chip${f.id === currentForm ? ' active' : ''}" data-form="${f.id}" role="tab" aria-selected="${f.id === currentForm ? 'true' : 'false'}">${f.labelJa} / ${f.labelEn}</button>`
-    )
+    .map((f) => {
+      const active = f.id === currentForm;
+      return `<button type="button" class="chip${active ? ' active' : ''}" data-form="${f.id}" role="tab" aria-selected="${active ? 'true' : 'false'}"><span class="tex" data-tex="${f.tex.replace(/"/g, '&quot;')}"></span></button>`;
+    })
     .join('');
+  renderKatexIn(formMenu);
 }
 
 function applyModeUI() {
-  const typeMeta = TYPE_META[currentType];
-  const formMeta = FORM_OPTIONS[currentType].find((f) => f.id === currentForm);
-  const modeMeta = MODE_META[currentMode];
-
-  subTitle.textContent = `${typeMeta.labelJa} · ${formMeta.labelJa} · ${modeMeta.labelJa} / ${typeMeta.labelEn} · ${formMeta.labelEn} · ${modeMeta.labelEn}`;
-  document.title = 'グラフ関数ドリル / Graph Function Drill';
+  document.title = '直線・放物線・双曲線関数 読み取り練習サイト / Graph & Function Reading Practice';
 
   typeMenu.querySelectorAll('.chip').forEach((btn) => {
     const active = btn.dataset.type === currentType;
@@ -735,34 +1089,37 @@ function applyModeUI() {
 }
 
 function renderQuestion(problem) {
-  const { mode, form, correctParams, optionsParams } = problem;
+  const { mode, form, correctParams, optionsParams, primaryPoint } = problem;
   questionArea.innerHTML = '';
-  choicesEl.innerHTML = '';
-  choicesEl.className = 'choices';
-
+  
   if (mode === 'g2f') {
-    // グラフを見て式を選ぶ
-    const prompt = document.createElement('p');
-    prompt.className = 'question-prompt';
-    prompt.textContent =
-      'このグラフに対応する式はどれ？ / Which formula matches this graph?';
-    questionArea.appendChild(prompt);
+    // グラフから式：左にグラフ、右に選択肢
+    const layout = document.createElement('div');
+    layout.className = 'two-pane-layout';
+    layout.innerHTML = `
+      <div class="pane-left">
+        <p class="question-prompt">このグラフに対応する式はどれ？<br><span class="en">Which formula matches this graph?</span></p>
+        <div class="graph-frame">
+          ${buildGraphSvg(form, correctParams, { size: 360, primaryPoint, showAsymptotes: true, showLabels: true, compact: false })}
+        </div>
+        <div class="hint-box">
+          <strong style="margin-bottom: 8px; font-size: 0.95rem; color: #1a2b25; display:block; text-align:center;">
+            特徴となる点 / Key Points
+          </strong>
+          <div style="line-height:1.6; font-weight: 700;">
+            ${featuresCaptionHtml(form, correctParams, primaryPoint)}
+          </div>
+        </div>
+      </div>
+      <div class="pane-right">
+        <div class="choices" id="choicesGroup"></div>
+      </div>
+    `;
+    questionArea.appendChild(layout);
 
-    const frame = document.createElement('div');
-    frame.className = 'graph-frame';
-    frame.innerHTML = buildGraphSvg(form, correctParams, {
-      size: 340,
-      showPoints: true,
-      showAsymptotes: true,
-      compact: false
-    });
-    questionArea.appendChild(frame);
-
-    inputHint.textContent =
-      '座標（整数点）と漸近線をヒントに、式と定義域を選んでください / Use integer points and asymptotes as hints.';
-
+    const choicesGroup = document.getElementById('choicesGroup');
     optionsParams.forEach((params, i) => {
-      const fmt = formatFormula(form, params, true);
+      const fmt = formulaHtml(form, params, true);
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'choice-btn';
@@ -771,31 +1128,33 @@ function renderQuestion(problem) {
         <span class="choice-letter">${String.fromCharCode(65 + i)}</span>
         <span class="choice-content">
           ${fmt.main}
-          <span class="domain">定義域 / domain: ${fmt.domain.ja}</span>
+          <span class="domain">定義域 / domain: ${renderKatex(fmt.domain.ja)}</span>
         </span>
+        <span class="choice-badge"></span>
       `;
-      choicesEl.appendChild(btn);
+      choicesGroup.appendChild(btn);
     });
+
   } else {
-    // 式を見てグラフを選ぶ
-    const prompt = document.createElement('p');
-    prompt.className = 'question-prompt';
-    prompt.textContent =
-      'この式に対応するグラフはどれ？ / Which graph matches this formula?';
-    questionArea.appendChild(prompt);
+    // 式からグラフ：上に式、下に選択肢
+    const layout = document.createElement('div');
+    layout.className = 'one-pane-layout';
+    
+    const fmt = formulaHtml(form, correctParams, true);
+    layout.innerHTML = `
+      <div class="question-header-f2g" id="f2gHeaderArea">
+        <p class="question-prompt">この式に対応するグラフはどれ？<br><span class="en">Which graph matches this formula?</span></p>
+        <div class="formula-display">
+          ${fmt.main}<span class="domain">定義域 / domain: ${renderKatex(fmt.domain.ja)}</span>
+        </div>
+      </div>
+      <div class="choices choices-graph" id="choicesGroup"></div>
+    `;
+    questionArea.appendChild(layout);
 
-    const fmt = formatFormula(form, correctParams, true);
-    const formulaBox = document.createElement('div');
-    formulaBox.className = 'formula-display';
-    formulaBox.innerHTML = `${fmt.main}<span class="domain">定義域 / domain: ${fmt.domain.ja}</span>`;
-    questionArea.appendChild(formulaBox);
-
-    inputHint.textContent =
-      '傾き・頂点・漸近線・開く向きなどに注意 / Watch slope, vertex, asymptotes, and opening direction.';
-
-    choicesEl.classList.add('choices-graph');
-
+    const choicesGroup = document.getElementById('choicesGroup');
     optionsParams.forEach((params, i) => {
+      const pt = pickPrimaryPoint(form, params);
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'choice-btn choice-graph';
@@ -803,28 +1162,21 @@ function renderQuestion(problem) {
       btn.innerHTML = `
         <div class="choice-header">
           <span class="choice-letter">${String.fromCharCode(65 + i)}</span>
-          <span class="choice-content">選択肢 / Option ${String.fromCharCode(65 + i)}</span>
+          <span class="choice-badge"></span>
         </div>
         <div class="graph-choice-preview">
-          ${buildGraphSvg(form, params, {
-            size: 280,
-            showPoints: true,
-            showAsymptotes: true,
-            compact: true
-          })}
+          ${buildGraphSvg(form, params, { size: 300, primaryPoint: pt, showAsymptotes: true, showLabels: true, compact: true })}
         </div>
+        <div class="graph-features">${featuresCaptionHtml(form, params, pt)}</div>
       `;
-      choicesEl.appendChild(btn);
+      choicesGroup.appendChild(btn);
     });
   }
 }
 
 function clearFeedback() {
-  feedbackTextEl.textContent = '';
-  explanationEl.textContent = '';
   explanationEl.hidden = true;
-  feedbackEl.className = 'feedback empty';
-  nextProblemBtn.hidden = true;
+  explanationEl.innerHTML = '';
 }
 
 function newProblem() {
@@ -844,18 +1196,20 @@ function selectChoice(index) {
   if (locked || !currentProblem) return;
   locked = true;
 
-  const { correctIndex, explanation, form, correctParams, mode } = currentProblem;
-  const buttons = choicesEl.querySelectorAll('.choice-btn');
+  const { mode, correctIndex, explanation, form, correctParams } = currentProblem;
+  const buttons = questionArea.querySelectorAll('.choice-btn');
   const isCorrect = index === correctIndex;
-  const answerFmt = formatFormula(form, correctParams, true);
 
-  buttons.forEach((btn, i) => {
+  buttons.forEach((btn) => {
     btn.disabled = true;
     const iNum = Number(btn.dataset.index);
+    const badge = btn.querySelector('.choice-badge');
     if (iNum === correctIndex) {
       btn.classList.add('is-correct');
+      if (badge) badge.textContent = '正解 / Correct';
     } else if (iNum === index && !isCorrect) {
       btn.classList.add('is-wrong');
+      if (badge) badge.textContent = '不正解 / Incorrect';
     } else {
       btn.classList.add('is-dimmed');
     }
@@ -864,50 +1218,34 @@ function selectChoice(index) {
   if (isCorrect) {
     correctCount += 1;
     streak += 1;
-    feedbackEl.className = 'feedback ok';
-    feedbackTextEl.textContent = `正解！ Correct!  → ${answerFmt.main}`;
   } else {
     wrongCount += 1;
     streak = 0;
-    feedbackEl.className = 'feedback ng';
-    feedbackTextEl.textContent = `不正解… Incorrect... 正解は / Answer: ${answerFmt.main}`;
   }
 
-  explanationEl.textContent = explanation;
+  // 式からグラフの問題の場合、解答後は上部の問題の式を非表示にする（解説に式が表示されるため）
+  if (mode === 'f2g') {
+    const headerArea = document.getElementById('f2gHeaderArea');
+    if (headerArea) headerArea.style.display = 'none';
+  }
+
+  const fmt = formulaHtml(form, correctParams, true);
+  explanationEl.innerHTML = explanationToHtml(
+    explanation, 
+    isCorrect, 
+    fmt.tex, 
+    fmt.domain
+  );
   explanationEl.hidden = false;
-  nextProblemBtn.hidden = false;
+  
   updateScoreboard();
 
+  // 解説の一番上にスクロールし、次へボタンにフォーカスを当てる
   setTimeout(() => {
-    nextProblemBtn.focus();
-  }, 50);
-}
-
-/* ========== Mode setters ========== */
-function setType(type) {
-  if (!TYPE_META[type]) return;
-  if (type === currentType) return;
-  currentType = type;
-  currentForm = FORM_OPTIONS[type][0].id;
-  applyModeUI();
-  newProblem();
-}
-
-function setForm(form) {
-  const allowed = FORM_OPTIONS[currentType].some((f) => f.id === form);
-  if (!allowed) return;
-  if (form === currentForm) return;
-  currentForm = form;
-  applyModeUI();
-  newProblem();
-}
-
-function setMode(mode) {
-  if (!MODE_META[mode]) return;
-  if (mode === currentMode) return;
-  currentMode = mode;
-  applyModeUI();
-  newProblem();
+    explanationEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const nextBtnExp = explanationEl.querySelector('.next-btn-exp');
+    if (nextBtnExp) nextBtnExp.focus();
+  }, 100);
 }
 
 /* ========== Events ========== */
@@ -929,14 +1267,17 @@ modeMenu.addEventListener('click', (e) => {
   setMode(btn.dataset.mode);
 });
 
-choicesEl.addEventListener('click', (e) => {
+questionArea.addEventListener('click', (e) => {
   const btn = e.target.closest('.choice-btn');
   if (!btn || btn.disabled || locked) return;
   selectChoice(Number(btn.dataset.index));
 });
 
-nextProblemBtn.addEventListener('click', () => {
-  newProblem();
+// 解説ボックス内の次へボタンのイベント
+explanationEl.addEventListener('click', (e) => {
+  if (e.target.closest('.next-btn-exp')) {
+    newProblem();
+  }
 });
 
 resetBtn.addEventListener('click', () => {
@@ -948,20 +1289,16 @@ resetBtn.addEventListener('click', () => {
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && locked && !nextProblemBtn.hidden) {
-    e.preventDefault();
-    nextProblemBtn.click();
-    return;
+  if (e.key === 'Enter' && locked) {
+    const nextBtnExp = explanationEl.querySelector('.next-btn-exp');
+    if (nextBtnExp) {
+      e.preventDefault();
+      nextBtnExp.click();
+      return;
+    }
   }
-
   if (locked) return;
-
-  // 1/2/3 or A/B/C で選択
-  const map = {
-    '1': 0, '2': 1, '3': 2,
-    a: 0, b: 1, c: 2,
-    A: 0, B: 1, C: 2
-  };
+  const map = { '1': 0, '2': 1, '3': 2, a: 0, b: 1, c: 2, A: 0, B: 1, C: 2 };
   if (e.key in map) {
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -970,7 +1307,41 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+/* ========== Mode setters ========== */
+function setType(type) {
+  if (!TYPE_META[type] || type === currentType) return;
+  currentType = type;
+  currentForm = FORM_OPTIONS[type][0].id;
+  applyModeUI();
+  newProblem();
+}
+
+function setForm(form) {
+  if (!FORM_OPTIONS[currentType].some((f) => f.id === form) || form === currentForm) return;
+  currentForm = form;
+  applyModeUI();
+  newProblem();
+}
+
+function setMode(mode) {
+  if (!MODE_META[mode] || mode === currentMode) return;
+  currentMode = mode;
+  applyModeUI();
+  newProblem();
+}
+
 /* ========== Init ========== */
-applyModeUI();
-updateScoreboard();
-newProblem();
+function init() {
+  applyModeUI();
+  updateScoreboard();
+  newProblem();
+}
+
+if (typeof katex !== 'undefined') {
+  init();
+} else {
+  window.addEventListener('load', init);
+  setTimeout(() => {
+    if (!currentProblem) init();
+  }, 300);
+}
