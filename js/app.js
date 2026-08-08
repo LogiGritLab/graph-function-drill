@@ -85,7 +85,6 @@ function uniqueBy(arr, keyFn) {
 }
 
 function paramsKey(params) {
-  // キーの順序によるバグを防ぐためソートしてから文字列化する
   const sorted = {};
   Object.keys(params).sort().forEach(k => { sorted[k] = params[k]; });
   return JSON.stringify(sorted);
@@ -369,7 +368,6 @@ function genDistractors(form, correct) {
     if (obj.a === 0 || obj.k === 0) return;
     if (paramsKey(obj) === paramsKey(c)) return;
 
-    // 通る点が表示可能範囲に存在するかチェック（バグ2対策）
     const pts = samplePoints(form, obj, 6);
     let hasNonVertex = false;
     if (form === 'ax' || form === 'axb' || form === 'ax2' || form === 'ax2q') {
@@ -380,7 +378,6 @@ function genDistractors(form, correct) {
       hasNonVertex = pts.length > 0;
     }
     
-    // 表示可能な点が存在しない場合はダミーとして追加しない
     if (!hasNonVertex) return;
 
     candidates.push(obj);
@@ -528,7 +525,6 @@ function boxesOverlap(a, b, pad = 2) {
 }
 
 function placeLabel(candidates, occupied, size) {
-  // まずは他のラベルや線とまったく重ならない場所を探す
   for (const c of candidates) {
     const box = {
       x: c.anchor === 'end' ? c.x - c.w : c.anchor === 'middle' ? c.x - c.w / 2 : c.x,
@@ -543,7 +539,6 @@ function placeLabel(candidates, occupied, size) {
       return c;
     }
   }
-  // 全て重なる場合は、線の軌跡等の小さな要素(幅高<10)との衝突を許容して再チェックする
   for (const c of candidates) {
     const box = {
       x: c.anchor === 'end' ? c.x - c.w : c.anchor === 'middle' ? c.x - c.w / 2 : c.x,
@@ -657,7 +652,6 @@ function buildGraphSvg(form, params, opts = {}) {
       } else {
         pts.push(`L ${sx.toFixed(2)} ${sy.toFixed(2)}`);
       }
-      // グラフの直線をoccupiedに追加し、ラベルとの重なりを回避する
       if (showLabels) {
         occupied.push({ x: sx - 4, y: sy - 4, w: 8, h: 8 });
       }
@@ -1048,18 +1042,47 @@ function explanationToHtml(exp, isCorrect, correctTex, domainObj, mode, correctI
     ansText += ` &nbsp; <span style="font-size:0.85em; color:var(--muted); font-weight:normal;">(定義域 / domain: ${renderKatex(domainObj.ja)})</span>`;
   }
 
+  let mainExpl = [];
+  let altExpl = [];
+  let isAltSection = false;
+
+  exp.ja.forEach((jLine, i) => {
+    const eLine = exp.en[i];
+    if (jLine.includes('（別解）')) {
+      isAltSection = true;
+    }
+    if (isAltSection) {
+      altExpl.push({ ja: jLine, en: eLine });
+    } else {
+      mainExpl.push({ ja: jLine, en: eLine });
+    }
+  });
+
   const parse = (text) => text.replace(/\$\$([\s\S]+?)\$\$/g, (_, tex) => renderKatex(tex.trim(), true))
                               .replace(/\$([^$]+)\$/g, (_, tex) => renderKatex(tex.trim(), false));
 
-  const lis = exp.ja.map((jLine, i) => {
-    const eLine = exp.en[i];
-    const isAlt = jLine.includes('（別解）');
-    const liStyle = isAlt ? ' style="list-style-type: none; margin-top: 16px;"' : '';
-    return `<li${liStyle}>
-      <div class="exp-li-ja">${parse(jLine)}</div>
-      <div class="exp-li-en">${parse(eLine)}</div>
-    </li>`;
-  }).join('');
+  const mainLis = mainExpl.map(item => `
+    <li>
+      <div class="exp-li-ja">${parse(item.ja)}</div>
+      <div class="exp-li-en">${parse(item.en)}</div>
+    </li>
+  `).join('');
+
+  let altHtml = '';
+  if (altExpl.length > 0) {
+    const altContent = altExpl.map(item => `
+      <div style="margin-bottom: 14px;">
+        <div class="exp-li-ja">${parse(item.ja)}</div>
+        <div class="exp-li-en">${parse(item.en)}</div>
+      </div>
+    `).join('');
+    // インデントをなくし、上に1行分の余白をあける
+    altHtml = `
+      <div style="margin-top: 24px;">
+        ${altContent}
+      </div>
+    `;
+  }
 
   return `
     <div class="exp-box ${resultClass}">
@@ -1071,8 +1094,9 @@ function explanationToHtml(exp, isCorrect, correctTex, domainObj, mode, correctI
         <div class="exp-ans-line">${ansText}</div>
         <div class="exp-expl-label">【解説 / Explanation】</div>
         <ul class="exp-list">
-          ${lis}
+          ${mainLis}
         </ul>
+        ${altHtml}
       </div>
     </div>
   `;
@@ -1290,10 +1314,10 @@ function selectChoice(index) {
   
   updateScoreboard();
 
+  // スクロールはさせずに、フォーカスのみ移動させる
   setTimeout(() => {
-    explanationEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     const nextBtnExp = explanationEl.querySelector('.next-btn-exp');
-    if (nextBtnExp) nextBtnExp.focus();
+    if (nextBtnExp) nextBtnExp.focus({ preventScroll: true });
   }, 100);
 }
 
