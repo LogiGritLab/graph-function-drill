@@ -7,7 +7,7 @@
 
 
 🌐 ウェブサイトURL
-https://YOUR_USERNAME.github.io/graph-function-drill/
+https://logigritlab.github.io/graph-function-drill/ 
 
 主な機能
 •	直線（一次関数）・放物線（二次関数）・双曲線（反比例）のグラフを練習 
@@ -40,7 +40,7 @@ MITライセンス
 An interactive web application for practicing the relationship between graphs and equations.
 
 🌐 Demo
-https://YOUR_USERNAME.github.io/graph-function-drill/
+https://logigritlab.github.io/graph-function-drill/ 
 
 ## Features
 
