@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="直線・放物線・双曲線関数 読み取り練習サイト / Graph & Function Reading Practice">
-<title>直線・放物線・双曲線関数 読み取り練習サイト / Graph & Function Reading Practice</title>
+<meta name="description" content="関数グラフ 読み取り練習">
+<title>関数グラフ 読み取り練習</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
@@ -17,46 +17,46 @@
   <div class="app">
     <header class="header">
       <div class="header-text">
-        <h1>直線・放物線・双曲線関数 読み取り練習サイト<br><span class="title-en">Graph &amp; Function Reading Practice</span></h1>
+        <h1>関数グラフ 読み取り練習</h1>
       </div>
-      <button type="button" id="resetBtn" class="btn-ghost" title="スコアをリセット / Reset">
-        <span class="btn-ghost-icon">✕</span>リセット / Reset
+      <button type="button" id="resetBtn" class="btn-ghost" title="スコアをリセット">
+        <span class="btn-ghost-icon">✕</span>リセット
       </button>
     </header>
 
-    <section class="controls" aria-label="練習メニュー / Training Menu">
+    <section class="controls" aria-label="練習メニュー">
       <div class="control-group">
-        <span class="control-label">種類 / Type</span>
+        <span class="control-label">種類</span>
         <div class="chip-row" id="typeMenu" role="tablist">
-          <button type="button" class="chip active" data-type="linear" role="tab" aria-selected="true">直線 / Linear</button>
-          <button type="button" class="chip" data-type="parabola" role="tab" aria-selected="false">放物線 / Parabola</button>
-          <button type="button" class="chip" data-type="hyperbola" role="tab" aria-selected="false">双曲線 / Hyperbola</button>
+          <button type="button" class="chip active" data-type="linear" role="tab" aria-selected="true">直線</button>
+          <button type="button" class="chip" data-type="parabola" role="tab" aria-selected="false">放物線</button>
+          <button type="button" class="chip" data-type="hyperbola" role="tab" aria-selected="false">双曲線</button>
         </div>
       </div>
       <div class="control-group">
-        <span class="control-label">形 / Form</span>
+        <span class="control-label">形</span>
         <div class="chip-row" id="formMenu" role="tablist"></div>
       </div>
       <div class="control-group">
-        <span class="control-label">問題タイプ / Question Type</span>
+        <span class="control-label">問題タイプ</span>
         <div class="chip-row" id="modeMenu" role="tablist">
-          <button type="button" class="chip active" data-mode="g2f" role="tab" aria-selected="true">グラフ→式 / Graph → Formula</button>
-          <button type="button" class="chip" data-mode="f2g" role="tab" aria-selected="false">式→グラフ / Formula → Graph</button>
+          <button type="button" class="chip active" data-mode="g2f" role="tab" aria-selected="true">グラフ→式</button>
+          <button type="button" class="chip" data-mode="f2g" role="tab" aria-selected="false">式→グラフ</button>
         </div>
       </div>
     </section>
 
-    <section class="stats" aria-label="スコア / Score">
+    <section class="stats" aria-label="スコア">
       <div class="stat stat-ok">
-        <span class="stat-label">正解 / Correct</span>
+        <span class="stat-label">正解</span>
         <span class="stat-value ok" id="correctCount">0</span>
       </div>
       <div class="stat stat-ng">
-        <span class="stat-label">不正解 / Incorrect</span>
+        <span class="stat-label">不正解</span>
         <span class="stat-value ng" id="wrongCount">0</span>
       </div>
       <div class="stat stat-streak">
-        <span class="stat-label">連続 / Streak</span>
+        <span class="stat-label">連続</span>
         <span class="stat-value streak" id="streakCount">0</span>
       </div>
     </section>
@@ -67,11 +67,11 @@
       </div>
       
       <div class="explanation" id="explanation" hidden>
-        <!-- filled by JS (exp-box) -->
+        <!-- filled by JS -->
       </div>
     </main>
 
-    <p class="footer-note">✎ 正解・不正解のあと、Enter または「次へ」で次の問題へ進みます / After answering, press Enter or Next to continue.</p>
+    <p class="footer-note">✎ 解答後、Enter または「次へ」で次の問題へ進みます。</p>
   </div>
 
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
