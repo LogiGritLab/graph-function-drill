@@ -102,7 +102,7 @@ button { font-family: inherit; }
   flex-direction: column;
   width: 100%;
 }
-@media (min-width: 760px) {
+@media (min-width: 600px) {
   .two-pane-layout {
     flex-direction: row;
     align-items: stretch;
@@ -224,10 +224,8 @@ button { font-family: inherit; }
 .choices { display: grid; gap: 10px; }
 .choices-graph { grid-template-columns: 1fr; }
 
-@media (min-width: 760px) {
-  .choices-graph { grid-template-columns: 1fr; }
-}
-@media (min-width: 980px) {
+/* スマホ横画面など、幅が600px以上になれば選択肢を3列（横並び）にする */
+@media (min-width: 600px) {
   .choices.choices-graph { grid-template-columns: repeat(3, 1fr); }
 }
 
