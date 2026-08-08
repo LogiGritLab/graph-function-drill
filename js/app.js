@@ -1087,7 +1087,6 @@ function explanationToHtml(exp, isCorrect, correctTex, domainObj, mode, correctI
     <div class="exp-box ${resultClass}">
       <div class="exp-header">
         <h3 class="exp-title">${resultTitle}</h3>
-        <button type="button" class="btn-next next-btn-exp">次へ / Next (Enter) ⏎</button>
       </div>
       <div class="exp-body">
         <div class="exp-ans-line">${ansText}</div>
@@ -1096,6 +1095,9 @@ function explanationToHtml(exp, isCorrect, correctTex, domainObj, mode, correctI
           ${mainLis}
         </ul>
         ${altHtml}
+        <div style="text-align: center; margin-top: 24px;">
+          <button type="button" class="btn-next next-btn-exp">次へ / Next (Enter) ⏎</button>
+        </div>
       </div>
     </div>
   `;
@@ -1173,7 +1175,6 @@ function renderQuestion(problem) {
   
   if (mode === 'g2f') {
     const layout = document.createElement('div');
-    // タイトルをペインの上に移動してグラフと選択肢の上端を揃える
     layout.innerHTML = `
       <p class="question-prompt">このグラフに対応する式はどれ？<br><span class="en">Which formula matches this graph?</span></p>
       <div class="two-pane-layout">
@@ -1192,6 +1193,9 @@ function renderQuestion(problem) {
         </div>
         <div class="pane-right">
           <div class="choices" id="choicesGroup"></div>
+          <div id="nextBtnG2fContainer" style="display: none; margin-top: 12px; text-align: center;">
+            <button type="button" class="btn-next next-btn-exp">次へ / Next (Enter) ⏎</button>
+          </div>
         </div>
       </div>
     `;
@@ -1315,9 +1319,21 @@ function selectChoice(index) {
   
   updateScoreboard();
 
-  // スクロールはさせずに、フォーカスのみ移動させる（マウス操作不能なためキーボード対応）
+  // スクロールはさせずに、フォーカスのみ移動させる
   setTimeout(() => {
-    const nextBtnExp = explanationEl.querySelector('.next-btn-exp');
+    let nextBtnExp = null;
+    if (mode === 'g2f') {
+      const g2fContainer = document.getElementById('nextBtnG2fContainer');
+      if (g2fContainer) {
+        g2fContainer.style.display = 'block';
+        nextBtnExp = g2fContainer.querySelector('.next-btn-exp');
+      }
+    }
+    
+    if (!nextBtnExp) {
+      nextBtnExp = explanationEl.querySelector('.next-btn-exp');
+    }
+    
     if (nextBtnExp) nextBtnExp.focus({ preventScroll: true });
   }, 100);
 }
@@ -1342,6 +1358,10 @@ modeMenu.addEventListener('click', (e) => {
 });
 
 questionArea.addEventListener('click', (e) => {
+  if (e.target.closest('.next-btn-exp')) {
+    newProblem();
+    return;
+  }
   const btn = e.target.closest('.choice-btn');
   if (!btn || btn.disabled || locked) return;
   selectChoice(Number(btn.dataset.index));
@@ -1363,7 +1383,7 @@ resetBtn.addEventListener('click', () => {
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && locked) {
-    const nextBtnExp = explanationEl.querySelector('.next-btn-exp');
+    const nextBtnExp = explanationEl.querySelector('.next-btn-exp') || document.querySelector('#nextBtnG2fContainer .next-btn-exp');
     if (nextBtnExp) {
       e.preventDefault();
       nextBtnExp.click();
