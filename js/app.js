@@ -85,7 +85,10 @@ function uniqueBy(arr, keyFn) {
 }
 
 function paramsKey(params) {
-  return JSON.stringify(params);
+  // キーの順序によるバグを防ぐためソートしてから文字列化する
+  const sorted = {};
+  Object.keys(params).sort().forEach(k => { sorted[k] = params[k]; });
+  return JSON.stringify(sorted);
 }
 
 function paren(n) {
@@ -177,7 +180,6 @@ function asymptotesOf(form, params) {
   return [];
 }
 
-/** LaTeX の式本体 */
 function formulaTex(form, params) {
   const { a, b, p, q, k } = params;
   switch (form) {
@@ -293,7 +295,6 @@ function getGraphFeatures(form, params) {
       }
       break;
   }
-
   return features;
 }
 
@@ -367,6 +368,21 @@ function genDistractors(form, correct) {
   const push = (obj) => {
     if (obj.a === 0 || obj.k === 0) return;
     if (paramsKey(obj) === paramsKey(c)) return;
+
+    // 通る点が表示可能範囲に存在するかチェック（バグ2対策）
+    const pts = samplePoints(form, obj, 6);
+    let hasNonVertex = false;
+    if (form === 'ax' || form === 'axb' || form === 'ax2' || form === 'ax2q') {
+      hasNonVertex = pts.some(p => p.x !== 0);
+    } else if (form === 'axp2' || form === 'axp2q') {
+      hasNonVertex = pts.some(p => p.x !== obj.p);
+    } else {
+      hasNonVertex = pts.length > 0;
+    }
+    
+    // 表示可能な点が存在しない場合はダミーとして追加しない
+    if (!hasNonVertex) return;
+
     candidates.push(obj);
   };
 
@@ -492,7 +508,7 @@ function samplePoints(form, params, limit = 6) {
 }
 
 /* ========== SVG Graph ========== */
-const GRAPH_VIEW = { min: -6, max: 6, pad: 26 }; // フォントサイズに合わせて余白を少し拡大
+const GRAPH_VIEW = { min: -6, max: 6, pad: 26 };
 
 function worldToSvg(x, y, size = 320) {
   const { min, max, pad } = GRAPH_VIEW;
@@ -512,7 +528,7 @@ function boxesOverlap(a, b, pad = 2) {
 }
 
 function placeLabel(candidates, occupied, size) {
-  const pad = GRAPH_VIEW.pad;
+  // まずは他のラベルや線とまったく重ならない場所を探す
   for (const c of candidates) {
     const box = {
       x: c.anchor === 'end' ? c.x - c.w : c.anchor === 'middle' ? c.x - c.w / 2 : c.x,
@@ -521,10 +537,13 @@ function placeLabel(candidates, occupied, size) {
       h: c.h
     };
     if (box.x < 2 || box.y < 2 || box.x + box.w > size - 2 || box.y + box.h > size - 2) continue;
-    if (occupied.some((o) => boxesOverlap(box, o))) continue;
-    occupied.push(box);
-    return c;
+    const overlaps = occupied.filter((o) => boxesOverlap(box, o));
+    if (overlaps.length === 0) {
+      occupied.push(box);
+      return c;
+    }
   }
+  // 全て重なる場合は、線の軌跡等の小さな要素(幅高<10)との衝突を許容して再チェックする
   for (const c of candidates) {
     const box = {
       x: c.anchor === 'end' ? c.x - c.w : c.anchor === 'middle' ? c.x - c.w / 2 : c.x,
@@ -533,8 +552,12 @@ function placeLabel(candidates, occupied, size) {
       h: c.h
     };
     if (box.x < 2 || box.y < 2 || box.x + box.w > size - 2 || box.y + box.h > size - 2) continue;
-    occupied.push(box);
-    return c;
+    const majorObstacles = occupied.filter(o => o.w >= 10 && o.h >= 10);
+    const overlaps = majorObstacles.filter((o) => boxesOverlap(box, o));
+    if (overlaps.length === 0) {
+      occupied.push(box);
+      return c;
+    }
   }
   return candidates[0];
 }
@@ -566,7 +589,6 @@ function buildGraphSvg(form, params, opts = {}) {
   parts.push(`<polygon points="${size - pad},${oy} ${size - pad - 7},${oy - 4} ${size - pad - 7},${oy + 4}" fill="#333"/>`);
   parts.push(`<polygon points="${ox},${pad} ${ox - 4},${pad + 7} ${ox + 4},${pad + 7}" fill="#333"/>`);
 
-  // グラフの軸数字、ラベルを大きく（font-size="14"等）
   if (!compact) {
     parts.push(`<text x="${size - pad - 2}" y="${oy - 8}" font-size="15" font-weight="700" fill="#333" text-anchor="end">x</text>`);
     parts.push(`<text x="${ox + 8}" y="${pad + 12}" font-size="15" font-weight="700" fill="#333">y</text>`);
@@ -635,6 +657,10 @@ function buildGraphSvg(form, params, opts = {}) {
       } else {
         pts.push(`L ${sx.toFixed(2)} ${sy.toFixed(2)}`);
       }
+      // グラフの直線をoccupiedに追加し、ラベルとの重なりを回避する
+      if (showLabels) {
+        occupied.push({ x: sx - 4, y: sy - 4, w: 8, h: 8 });
+      }
     }
     return pts.join(' ');
   }
@@ -651,7 +677,6 @@ function buildGraphSvg(form, params, opts = {}) {
     if (d) parts.push(`<path d="${d}" fill="none" stroke="#1a5c78" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`);
   }
 
-  // 描画する点は、特徴点と primaryPoint に限定する
   const features = getGraphFeatures(form, params);
   const pts = [];
   if (features.vertex) pts.push({ ...features.vertex, primary: true });
@@ -677,7 +702,7 @@ function buildGraphSvg(form, params, opts = {}) {
 
     if (showLabels && pt.primary) {
       const label = `(${pt.x}, ${pt.y})`;
-      const fs = 14; // プロットの座標文字も大きく
+      const fs = 14;
       const w = estimateTextWidth(label, fs);
       const h = fs + 2;
       const placed = placeLabel(
@@ -712,7 +737,7 @@ function pickPrimaryPoint(form, params) {
   return pts[0];
 }
 
-function buildExplanation(form, params, mode, pt) {
+function buildExplanation(form, params, mode, pt, correctIndex) {
   const tex = formulaTex(form, params);
   const { a, b, p, q, k } = params;
   const ja = [];
@@ -780,13 +805,6 @@ function buildExplanation(form, params, mode, pt) {
 
         ja.push(`（$a = ${a}$ が${a > 0 ? '正なので下に凸' : '負なので上に凸'}のグラフです）`);
         en.push(`(Since $a = ${a}$ is ${a > 0 ? 'positive, it is convex downward' : 'negative, it is convex upward'}.)`);
-
-        if (Math.abs(pt.x) === 1) {
-          ja.push(`<strong>（別解）</strong> 頂点から$x$軸方向に $1$ または $-1$ 進むと、$y$軸方向に $a \\times (\\pm 1)^2 = a$ 進む性質があります。`);
-          en.push(`<strong>(Alternative)</strong> Moving $\\pm 1$ horizontally from the vertex changes $y$ by $a \\times (\\pm 1)^2 = a$.`);
-          ja.push(`頂点 $(0,0)$ から$x$軸方向に $${pt.x}$ 進むと、$y$は $${pt.y}$ 変化しているので、$a = ${a}$ とすぐに分かります。`);
-          en.push(`Moving $${pt.x}$ horizontally from $(0,0)$, $y$ changes by $${pt.y}$, so $a = ${a}$.`);
-        }
         break;
       }
       case 'ax2q': {
@@ -802,11 +820,6 @@ function buildExplanation(form, params, mode, pt) {
         const leftQ = pt.y - q;
         ja.push(`$${pt.y} = a \\times ${paren(pt.x)}^2 ${latexSigned(q)}$ 　より　 $${leftQ} = ${formatCoeff(pt.x * pt.x, 'a')}$ 　となるので　 $a = ${a}$`);
         en.push(`$${pt.y} = a \\times ${paren(pt.x)}^2 ${latexSigned(q)} \\implies ${leftQ} = ${formatCoeff(pt.x * pt.x, 'a')} \\implies a = ${a}$`);
-
-        if (Math.abs(pt.x) === 1) {
-          ja.push(`<strong>（別解）</strong> 頂点 $(0,${q})$ から$x$方向に $1$ 進むと、点は $(${pt.x}, ${pt.y})$ となり、$y$は ${a}$ 変化しているので、$a = ${a}$ と分かります。`);
-          en.push(`<strong>(Alternative)</strong> Moving $1$ horizontally from $(0,${q})$ changes $y$ by ${a} to reach $(${pt.x}, ${pt.y})$, so $a = ${a}$.`);
-        }
         break;
       }
       case 'axp2': {
@@ -822,11 +835,6 @@ function buildExplanation(form, params, mode, pt) {
         const insideP = pt.x - p;
         ja.push(`$${pt.y} = a \\times (${pt.x} ${latexSigned(-p)})^2$ 　より　 $${pt.y} = ${formatCoeff(insideP * insideP, 'a')}$ 　となるので　 $a = ${a}$`);
         en.push(`$${pt.y} = a \\times (${pt.x} ${latexSigned(-p)})^2 \\implies ${pt.y} = ${formatCoeff(insideP * insideP, 'a')} \\implies a = ${a}$`);
-
-        if (Math.abs(pt.x - p) === 1) {
-          ja.push(`<strong>（別解）</strong> 頂点 $(${p},0)$ から$x$方向に $1$ 進むと、点は $(${pt.x}, ${pt.y})$ となり、$y$は ${a}$ 変化しているので、$a = ${a}$ と分かります。`);
-          en.push(`<strong>(Alternative)</strong> Moving $1$ horizontally from $(${p},0)$ changes $y$ by ${a} to reach $(${pt.x}, ${pt.y})$, so $a = ${a}$.`);
-        }
         break;
       }
       case 'axp2q': {
@@ -843,11 +851,6 @@ function buildExplanation(form, params, mode, pt) {
         const leftPQ = pt.y - q;
         ja.push(`$${pt.y} = a \\times (${pt.x} ${latexSigned(-p)})^2 ${latexSigned(q)}$ 　より　 $${leftPQ} = ${formatCoeff(insidePQ * insidePQ, 'a')}$ 　となるので　 $a = ${a}$`);
         en.push(`$${pt.y} = a \\times (${pt.x} ${latexSigned(-p)})^2 ${latexSigned(q)} \\implies ${leftPQ} = ${formatCoeff(insidePQ * insidePQ, 'a')} \\implies a = ${a}$`);
-
-        if (Math.abs(pt.x - p) === 1) {
-          ja.push(`<strong>（別解）</strong> 頂点 $(${p},${q})$ から$x$方向に $1$ 進むと、点は $(${pt.x}, ${pt.y})$ となり、$y$は ${a}$ 変化しているので、$a = ${a}$ と分かります。`);
-          en.push(`<strong>(Alternative)</strong> Moving $1$ horizontally from $(${p},${q})$ changes $y$ by ${a} to reach $(${pt.x}, ${pt.y})$, so $a = ${a}$.`);
-        }
         break;
       }
       case 'kx': {
@@ -904,92 +907,143 @@ function buildExplanation(form, params, mode, pt) {
     }
   } else {
     // mode === 'f2g'
+    const choiceChar = String.fromCharCode(65 + correctIndex);
     switch(form) {
       case 'ax':
-        ja.push(`これは原点 $(0, 0)$ を通る直線です。`);
-        en.push(`It is a line passing through the origin $(0, 0)$.`);
+        ja.push(`一般に、原点を通る直線は $y = ax$ と置けます。`);
+        en.push(`Generally, a line passing through the origin can be written as $y = ax$.`);
+        ja.push(`この式 $y = ${latexCoeff(a, 'x')}$ では、$a = ${a}$ です。`);
+        en.push(`In this formula, $a = ${a}$.`);
         ja.push(`傾きが $a = ${a}$ であり${a > 0 ? '正なので右上がりの直線' : '負なので右下がりの直線'}になります。`);
         en.push(`The slope is $a = ${a}$, which is ${a > 0 ? 'positive (rising to the right)' : 'negative (falling to the right)'}.`);
-        ja.push(`また、$x = 1$ のとき $y = ${a}$ なので、点 $(1, ${a})$ を通るグラフを選びます。`);
-        en.push(`When $x = 1$, $y = ${a}$, so choose the graph passing through $(1, ${a})$.`);
+        ja.push(`また、$x = 1$ のとき $y = ${a}$ なので、点 $(1, ${a})$ を通ります。`);
+        en.push(`When $x = 1$, $y = ${a}$, so it passes through $(1, ${a})$.`);
         break;
       case 'axb':
-        ja.push(`これは $y$切片が $b = ${b}$ なので、$y$軸上の点 $(0, ${b})$ を通る直線です。`);
+        ja.push(`一般に、直線は $y = ax + b$ と置けます。`);
+        en.push(`Generally, a line can be written as $y = ax + b$.`);
+        ja.push(`この式では、$a = ${a}$、$b = ${b}$ です。`);
+        en.push(`In this formula, $a = ${a}$ and $b = ${b}$.`);
+        ja.push(`$y$切片が $b = ${b}$ なので、$y$軸上の点 $(0, ${b})$ を通ります。`);
         en.push(`The y-intercept is $b = ${b}$, so it passes through $(0, ${b})$ on the y-axis.`);
         ja.push(`傾きが $a = ${a}$ であり${a > 0 ? '正なので右上がり' : '負なので右下がり'}の直線になります。`);
         en.push(`The slope is $a = ${a}$, which is ${a > 0 ? 'positive (rising)' : 'negative (falling)'}.`);
-        ja.push(`例えば、$x = 1$ のとき $y = ${a + b}$ なので、点 $(1, ${a + b})$ を通るグラフを選びます。`);
-        en.push(`For example, when $x = 1$, $y = ${a + b}$, so choose the graph passing through $(1, ${a + b})$.`);
+        ja.push(`例えば、$x = 1$ のとき $y = ${a + b}$ なので、点 $(1, ${a + b})$ を通ります。`);
+        en.push(`For example, when $x = 1$, $y = ${a + b}$, so it passes through $(1, ${a + b})$.`);
         break;
       case 'ax2':
-        ja.push(`これは頂点が原点 $(0, 0)$ の放物線です。`);
-        en.push(`It is a parabola with its vertex at the origin $(0, 0)$.`);
+        ja.push(`一般に、頂点が原点の二次関数は $y = ax^2$ と置けます。`);
+        en.push(`Generally, a quadratic function with its vertex at the origin is $y = ax^2$.`);
+        ja.push(`この式 $y = ${latexCoeff(a, 'x^2')}$ では、$a = ${a}$ です。`);
+        en.push(`In this formula, $a = ${a}$.`);
         ja.push(`$a = ${a}$ が${a > 0 ? '正なので下に凸（上に開く）' : '負なので上に凸（下に開く）'}のグラフになります。`);
         en.push(`Since $a = ${a}$ is ${a > 0 ? 'positive, it opens upward' : 'negative, it opens downward'}.`);
-        ja.push(`また、$x = 1$ のとき $y = ${a}$ なので、点 $(1, ${a})$ を通るグラフを選びます。`);
-        en.push(`When $x = 1$, $y = ${a}$, so choose the graph passing through $(1, ${a})$.`);
+        ja.push(`また、$x = 1$ のとき $y = ${a}$ なので、点 $(1, ${a})$ を通ります。`);
+        en.push(`When $x = 1$, $y = ${a}$, so it passes through $(1, ${a})$.`);
         break;
       case 'ax2q':
-        ja.push(`これは $y = ${latexCoeff(a, 'x^2')}$ を $y$軸方向に $q = ${q}$ だけ平行移動した放物線なので、頂点は $(0, ${q})$ です。`);
-        en.push(`It translates $y = ${latexCoeff(a, 'x^2')}$ by ${q} vertically, so the vertex is $(0, ${q})$.`);
+        ja.push(`一般に、$y$軸上に頂点を持つ二次関数は $y = ax^2 + q$ と置けます。`);
+        en.push(`Generally, a quadratic function with its vertex on the y-axis is $y = ax^2 + q$.`);
+        ja.push(`この式では、$a = ${a}$、$q = ${q}$ です。`);
+        en.push(`In this formula, $a = ${a}$ and $q = ${q}$.`);
+        ja.push(`頂点は $(0, q)$ なので、$(0, ${q})$ となります。`);
+        en.push(`The vertex is $(0, q)$, which is $(0, ${q})$.`);
         ja.push(`$a = ${a}$ が${a > 0 ? '正なので下に凸（上に開く）' : '負なので上に凸（下に開く）'}のグラフになります。`);
         en.push(`Since $a = ${a}$ is ${a > 0 ? 'positive, it opens upward' : 'negative, it opens downward'}.`);
-        ja.push(`また、$x = 1$ のとき $y = ${a + q}$ なので、点 $(1, ${a + q})$ を通るグラフを選びます。`);
-        en.push(`When $x = 1$, $y = ${a + q}$, so choose the graph passing through $(1, ${a + q})$.`);
+        ja.push(`また、$x = 1$ のとき $y = ${a + q}$ なので、点 $(1, ${a + q})$ を通ります。`);
+        en.push(`When $x = 1$, $y = ${a + q}$, so it passes through $(1, ${a + q})$.`);
         break;
       case 'axp2':
-        ja.push(`これは $y = ${latexCoeff(a, 'x^2')}$ を $x$軸方向に $p = ${p}$ だけ平行移動した放物線なので、頂点は $(${p}, 0)$ です。`);
-        en.push(`It translates $y = ${latexCoeff(a, 'x^2')}$ by ${p} horizontally, so the vertex is $(${p}, 0)$.`);
+        ja.push(`一般に、$x$軸上に頂点を持つ二次関数は $y = a(x - p)^2$ と置けます。`);
+        en.push(`Generally, a quadratic function with its vertex on the x-axis is $y = a(x - p)^2$.`);
+        ja.push(`この式では、$a = ${a}$、$p = ${p}$ です。`);
+        en.push(`In this formula, $a = ${a}$ and $p = ${p}$.`);
+        ja.push(`頂点は $(p, 0)$ なので、$(${p}, 0)$ となります。`);
+        en.push(`The vertex is $(p, 0)$, which is $(${p}, 0)$.`);
         ja.push(`$a = ${a}$ が${a > 0 ? '正なので下に凸（上に開く）' : '負なので上に凸（下に開く）'}のグラフになります。`);
         en.push(`Since $a = ${a}$ is ${a > 0 ? 'positive, it opens upward' : 'negative, it opens downward'}.`);
-        ja.push(`また、頂点から$x$が1ずれた $x = ${p + 1}$ のとき $y = ${a}$ なので、点 $(${p + 1}, ${a})$ を通るグラフを選びます。`);
-        en.push(`When $x = ${p + 1}$, $y = ${a}$, so choose the graph passing through $(${p + 1}, ${a})$.`);
+        ja.push(`また、頂点から$x$が1ずれた $x = ${p + 1}$ のとき $y = ${a}$ なので、点 $(${p + 1}, ${a})$ を通ります。`);
+        en.push(`When $x = ${p + 1}$, $y = ${a}$, so it passes through $(${p + 1}, ${a})$.`);
         break;
       case 'axp2q':
-        ja.push(`これは $y = ${latexCoeff(a, 'x^2')}$ を $x$軸方向に $p = ${p}$、$y$軸方向に $q = ${q}$ だけ平行移動した放物線なので、頂点は $(${p}, ${q})$ です。`);
-        en.push(`It translates $y = ${latexCoeff(a, 'x^2')}$ by $p = ${p}$ and $q = ${q}$, so the vertex is $(${p}, ${q})$.`);
+        ja.push(`一般に、二次関数は $y = a(x - p)^2 + q$ と置けます。`);
+        en.push(`Generally, a quadratic function can be written as $y = a(x - p)^2 + q$.`);
+        ja.push(`この式では、$a = ${a}$、$p = ${p}$、$q = ${q}$ です。`);
+        en.push(`In this formula, $a = ${a}$, $p = ${p}$, and $q = ${q}$.`);
+        ja.push(`頂点は $(p, q)$ なので、$(${p}, ${q})$ となります。`);
+        en.push(`The vertex is $(p, q)$, which is $(${p}, ${q})$.`);
         ja.push(`$a = ${a}$ が${a > 0 ? '正なので下に凸（上に開く）' : '負なので上に凸（下に開く）'}のグラフになります。`);
         en.push(`Since $a = ${a}$ is ${a > 0 ? 'positive, it opens upward' : 'negative, it opens downward'}.`);
-        ja.push(`また、$x = ${p + 1}$ のとき $y = ${a + q}$ なので、点 $(${p + 1}, ${a + q})$ を通るグラフを選びます。`);
-        en.push(`When $x = ${p + 1}$, $y = ${a + q}$, so choose the graph passing through $(${p + 1}, ${a + q})$.`);
+        ja.push(`また、$x = ${p + 1}$ のとき $y = ${a + q}$ なので、点 $(${p + 1}, ${a + q})$ を通ります。`);
+        en.push(`When $x = ${p + 1}$, $y = ${a + q}$, so it passes through $(${p + 1}, ${a + q})$.`);
         break;
       case 'kx':
-        ja.push(`これは漸近線が $x = 0$ と $y = 0$ の双曲線です。`);
-        en.push(`It is a hyperbola with asymptotes $x = 0$ and $y = 0$.`);
-        ja.push(`関数の式の分子が ${k} で${k > 0 ? '正なので、グラフは第1象限と第3象限（右上と左下）に現れます。' : '負なので、グラフは第2象限と第4象限（左上と右下）に現れます。'}`);
-        en.push(`Since the numerator is ${k} (${k > 0 ? 'positive' : 'negative'}), it appears in quadrants ${k > 0 ? 'I and III (top-right and bottom-left)' : 'II and IV (top-left and bottom-right)'}.`);
-        ja.push(`また、$x = 1$ のとき $y = ${k}$ なので、点 $(1, ${k})$ を通るグラフを選びます。`);
-        en.push(`When $x = 1$, $y = ${k}$, so choose the graph passing through $(1, ${k})$.`);
+        ja.push(`一般に、双曲線は $y = \\dfrac{k}{x}$ と置けます。`);
+        en.push(`Generally, a hyperbola can be written as $y = \\dfrac{k}{x}$.`);
+        ja.push(`この式では、$k = ${k}$ です。`);
+        en.push(`In this formula, $k = ${k}$.`);
+        ja.push(`漸近線は $x = 0$ と $y = 0$ です。`);
+        en.push(`The asymptotes are $x = 0$ and $y = 0$.`);
+        ja.push(`$k$ が ${k} で${k > 0 ? '正なので、グラフは第1象限と第3象限（右上と左下）に現れます。' : '負なので、グラフは第2象限と第4象限（左上と右下）に現れます。'}`);
+        en.push(`Since $k = ${k}$ is ${k > 0 ? 'positive, it appears in quadrants I and III (top-right and bottom-left).' : 'negative, it appears in quadrants II and IV (top-left and bottom-right).'}`);
+        ja.push(`また、$x = 1$ のとき $y = ${k}$ なので、点 $(1, ${k})$ を通ります。`);
+        en.push(`When $x = 1$, $y = ${k}$, so it passes through $(1, ${k})$.`);
         break;
       case 'kxp':
-        ja.push(`これは $y = \\dfrac{${k < 0 ? '-' : ''}${Math.abs(k)}}{x}$ を $x$軸方向に $p = ${p}$ だけ平行移動した双曲線なので、漸近線は $x = ${p}$ と $y = 0$ です。`);
-        en.push(`It translates $y = \\dfrac{${k < 0 ? '-' : ''}${Math.abs(k)}}{x}$ by ${p} horizontally, so asymptotes are $x = ${p}$ and $y = 0$.`);
-        ja.push(`関数の式の分子が ${k} で${k > 0 ? '正なので、漸近線を基準として右上と左下に現れます。' : '負なので、漸近線を基準として左上と右下に現れます。'}`);
-        en.push(`Since the numerator is ${k} (${k > 0 ? 'positive' : 'negative'}), it appears ${k > 0 ? 'top-right and bottom-left' : 'top-left and bottom-right'} relative to the asymptotes.`);
-        ja.push(`また、漸近線から$x$が1ずれた $x = ${p + 1}$ のとき $y = ${k}$ なので、点 $(${p + 1}, ${k})$ を通るグラフを選びます。`);
-        en.push(`When $x = ${p + 1}$, $y = ${k}$, so choose the graph passing through $(${p + 1}, ${k})$.`);
+        ja.push(`一般に、双曲線は $y = \\dfrac{k}{x - p}$ と置けます。`);
+        en.push(`Generally, a hyperbola can be written as $y = \\dfrac{k}{x - p}$.`);
+        ja.push(`この式では、$k = ${k}$、$p = ${p}$ です。`);
+        en.push(`In this formula, $k = ${k}$ and $p = ${p}$.`);
+        ja.push(`漸近線は $x = p$ と $y = 0$ なので、$x = ${p}$ と $y = 0$ になります。`);
+        en.push(`The asymptotes are $x = p$ and $y = 0$, so $x = ${p}$ and $y = 0$.`);
+        ja.push(`$k$ が ${k} で${k > 0 ? '正なので、漸近線を基準として右上と左下に現れます。' : '負なので、漸近線を基準として左上と右下に現れます。'}`);
+        en.push(`Since $k = ${k}$ is ${k > 0 ? 'positive, it appears top-right and bottom-left relative to the asymptotes.' : 'negative, it appears top-left and bottom-right relative to the asymptotes.'}`);
+        ja.push(`また、漸近線から$x$が1ずれた $x = ${p + 1}$ のとき $y = ${k}$ なので、点 $(${p + 1}, ${k})$ を通ります。`);
+        en.push(`When $x = ${p + 1}$, $y = ${k}$, so it passes through $(${p + 1}, ${k})$.`);
         break;
       case 'kxpq':
-        ja.push(`これは $y = \\dfrac{${k < 0 ? '-' : ''}${Math.abs(k)}}{x}$ を $x$軸方向に $p = ${p}$、$y$軸方向に $q = ${q}$ だけ平行移動した双曲線なので、漸近線は $x = ${p}$ と $y = ${q}$ です。`);
-        en.push(`It is translated by $p = ${p}$ and $q = ${q}$, so asymptotes are $x = ${p}$ and $y = ${q}$.`);
-        ja.push(`関数の式の分子が ${k} で${k > 0 ? '正なので、漸近線を基準として右上と左下に現れます。' : '負なので、漸近線を基準として左上と右下に現れます。'}`);
-        en.push(`Since the numerator is ${k} (${k > 0 ? 'positive' : 'negative'}), it appears ${k > 0 ? 'top-right and bottom-left' : 'top-left and bottom-right'} relative to the asymptotes.`);
-        ja.push(`また、$x = ${p + 1}$ のとき $y = ${k + q}$ なので、点 $(${p + 1}, ${k + q})$ を通るグラフを選びます。`);
-        en.push(`When $x = ${p + 1}$, $y = ${k + q}$, so choose the graph passing through $(${p + 1}, ${k + q})$.`);
+        ja.push(`一般に、双曲線は $y = \\dfrac{k}{x - p} + q$ と置けます。`);
+        en.push(`Generally, a hyperbola can be written as $y = \\dfrac{k}{x - p} + q$.`);
+        ja.push(`この式では、$k = ${k}$、$p = ${p}$、$q = ${q}$ です。`);
+        en.push(`In this formula, $k = ${k}, p = ${p}, q = ${q}$.`);
+        ja.push(`漸近線は $x = p$ と $y = q$ なので、$x = ${p}$ と $y = ${q}$ になります。`);
+        en.push(`The asymptotes are $x = p$ and $y = q$, so $x = ${p}$ and $y = ${q}$.`);
+        ja.push(`$k$ が ${k} で${k > 0 ? '正なので、漸近線を基準として右上と左下に現れます。' : '負なので、漸近線を基準として左上と右下に現れます。'}`);
+        en.push(`Since $k = ${k}$ is ${k > 0 ? 'positive, it appears top-right and bottom-left relative to the asymptotes.' : 'negative, it appears top-left and bottom-right relative to the asymptotes.'}`);
+        ja.push(`また、$x = ${p + 1}$ のとき $y = ${k + q}$ なので、点 $(${p + 1}, ${k + q})$ を通ります。`);
+        en.push(`When $x = ${p + 1}$, $y = ${k + q}$, so it passes through $(${p + 1}, ${k + q})$.`);
         break;
     }
+    
+    ja.push(`これらを満たすグラフは <strong>選択肢 ${choiceChar}</strong> です。`);
+    en.push(`The graph that satisfies these conditions is <strong>Choice ${choiceChar}</strong>.`);
   }
 
   return { ja, en };
 }
 
-function explanationToHtml(exp, isCorrect, correctTex, domainObj) {
+function explanationToHtml(exp, isCorrect, correctTex, domainObj, mode, correctIndex) {
   const resultClass = isCorrect ? 'correct' : 'wrong';
-  const resultTitle = isCorrect 
-    ? `正解！ Correct! &nbsp;&rarr;&nbsp; <span class="math-ans">${renderKatex(correctTex)}</span>`
-    : `不正解... Incorrect... 正解は / Answer: &nbsp; <span class="math-ans">${renderKatex(correctTex)}</span>`;
+  const choiceChar = String.fromCharCode(65 + correctIndex);
+  
+  let resultTitle;
+  let ansText;
 
-  let ansText = `【答え / Answer】 &nbsp; <span class="math-ans">${renderKatex(correctTex)}</span>`;
+  if (mode === 'f2g') {
+    resultTitle = isCorrect 
+      ? `正解！ Correct! &nbsp;&rarr;&nbsp; <span class="math-ans">選択肢 ${choiceChar}</span>`
+      : `不正解... Incorrect... 正解は / Answer: &nbsp; <span class="math-ans">選択肢 ${choiceChar}</span>`;
+    
+    ansText = `【答え / Answer】 &nbsp; <span class="math-ans">選択肢 ${choiceChar}</span>`;
+    ansText += `<br><br><div style="font-weight:700; color:var(--muted); margin-bottom:4px;">【問題の式 / Formula】</div><div class="math-ans">${renderKatex(correctTex)}</div>`;
+  } else {
+    resultTitle = isCorrect 
+      ? `正解！ Correct! &nbsp;&rarr;&nbsp; <span class="math-ans">${renderKatex(correctTex)}</span>`
+      : `不正解... Incorrect... 正解は / Answer: &nbsp; <span class="math-ans">${renderKatex(correctTex)}</span>`;
+      
+    ansText = `【答え / Answer】 &nbsp; <span class="math-ans">${renderKatex(correctTex)}</span>`;
+  }
+
   if (domainObj && domainObj.exclude.length > 0) {
     ansText += ` &nbsp; <span style="font-size:0.85em; color:var(--muted); font-weight:normal;">(定義域 / domain: ${renderKatex(domainObj.ja)})</span>`;
   }
@@ -999,7 +1053,9 @@ function explanationToHtml(exp, isCorrect, correctTex, domainObj) {
 
   const lis = exp.ja.map((jLine, i) => {
     const eLine = exp.en[i];
-    return `<li>
+    const isAlt = jLine.includes('（別解）');
+    const liStyle = isAlt ? ' style="list-style-type: none; margin-top: 16px;"' : '';
+    return `<li${liStyle}>
       <div class="exp-li-ja">${parse(jLine)}</div>
       <div class="exp-li-en">${parse(eLine)}</div>
     </li>`;
@@ -1054,7 +1110,7 @@ function makeProblem() {
     optionsParams,
     correctIndex,
     primaryPoint: pt,
-    explanation: buildExplanation(currentForm, correctParams, currentMode, pt)
+    explanation: buildExplanation(currentForm, correctParams, currentMode, pt, correctIndex)
   };
 }
 
@@ -1093,7 +1149,6 @@ function renderQuestion(problem) {
   questionArea.innerHTML = '';
   
   if (mode === 'g2f') {
-    // グラフから式：左にグラフ、右に選択肢
     const layout = document.createElement('div');
     layout.className = 'two-pane-layout';
     layout.innerHTML = `
@@ -1136,7 +1191,6 @@ function renderQuestion(problem) {
     });
 
   } else {
-    // 式からグラフ：上に式、下に選択肢
     const layout = document.createElement('div');
     layout.className = 'one-pane-layout';
     
@@ -1223,24 +1277,19 @@ function selectChoice(index) {
     streak = 0;
   }
 
-  // 式からグラフの問題の場合、解答後は上部の問題の式を非表示にする（解説に式が表示されるため）
-  if (mode === 'f2g') {
-    const headerArea = document.getElementById('f2gHeaderArea');
-    if (headerArea) headerArea.style.display = 'none';
-  }
-
   const fmt = formulaHtml(form, correctParams, true);
   explanationEl.innerHTML = explanationToHtml(
     explanation, 
     isCorrect, 
     fmt.tex, 
-    fmt.domain
+    fmt.domain,
+    mode,
+    correctIndex
   );
   explanationEl.hidden = false;
   
   updateScoreboard();
 
-  // 解説の一番上にスクロールし、次へボタンにフォーカスを当てる
   setTimeout(() => {
     explanationEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     const nextBtnExp = explanationEl.querySelector('.next-btn-exp');
@@ -1273,7 +1322,6 @@ questionArea.addEventListener('click', (e) => {
   selectChoice(Number(btn.dataset.index));
 });
 
-// 解説ボックス内の次へボタンのイベント
 explanationEl.addEventListener('click', (e) => {
   if (e.target.closest('.next-btn-exp')) {
     newProblem();
