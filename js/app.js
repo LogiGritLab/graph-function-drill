@@ -1,12 +1,31 @@
 /**
- * 直線・放物線・双曲線関数 読み取り練習サイト
  * Graph & Function Reading Practice
  */
 
-const TYPE_META = {
-  linear: { labelJa: '直線', labelEn: 'Linear' },
-  parabola: { labelJa: '放物線', labelEn: 'Parabola' },
-  hyperbola: { labelJa: '双曲線', labelEn: 'Hyperbola' }
+// HTMLの <html lang="..."> から言語を自動判定
+const isJa = document.documentElement.lang !== 'en';
+
+const TXT = {
+  title: isJa ? '関数グラフ 読み取り練習' : 'Graph & Function Practice',
+  g2fPrompt: isJa ? 'このグラフに対応する式はどれ？' : 'Which formula matches this graph?',
+  f2gPrompt: isJa ? 'この式に対応するグラフはどれ？' : 'Which graph matches this formula?',
+  keyPoints: isJa ? '特徴となる点' : 'Key Points',
+  domain: isJa ? '定義域: ' : 'Domain: ',
+  vertex: isJa ? '頂点: ' : 'Vertex: ',
+  yInt: isJa ? 'y切片: ' : 'y-intercept: ',
+  xInt: isJa ? 'x切片: ' : 'x-intercepts: ',
+  asymptotes: isJa ? '漸近線: ' : 'Asymptotes: ',
+  passingPoint: isJa ? '通る点: ' : 'Passing point: ',
+  correct: isJa ? '正解' : 'Correct',
+  incorrect: isJa ? '不正解' : 'Incorrect',
+  seeExpl: isJa ? '解説は以下をご覧ください。' : 'Please see the explanation below.',
+  nextBtn: isJa ? '次へ (Enter) ⏎' : 'Next (Enter) ⏎',
+  ansTitleCorrect: isJa ? '正解！' : 'Correct!',
+  ansTitleWrong: isJa ? '不正解... 正解は:' : 'Incorrect... Answer:',
+  choiceLabel: isJa ? '選択肢' : 'Choice',
+  ansLabel: isJa ? '【答え】' : '[Answer]',
+  formulaLabel: isJa ? '【問題の式】' : '[Formula]',
+  explLabel: isJa ? '【解説】' : '[Explanation]'
 };
 
 const FORM_OPTIONS = {
@@ -25,11 +44,6 @@ const FORM_OPTIONS = {
     { id: 'kxp', tex: 'y = \\dfrac{k}{x - p}' },
     { id: 'kxpq', tex: 'y = \\dfrac{k}{x - p} + q' }
   ]
-};
-
-const MODE_META = {
-  g2f: { labelJa: 'グラフ→式', labelEn: 'Graph → Formula' },
-  f2g: { labelJa: '式→グラフ', labelEn: 'Formula → Graph' }
 };
 
 /* ========== DOM ========== */
@@ -159,17 +173,16 @@ function evalFn(form, params, x) {
 
 function domainOf(form, params) {
   if (form === 'kx') {
-    return { ja: 'x \\neq 0', en: 'x \\neq 0', exclude: [0] };
+    return { text: 'x \\neq 0', exclude: [0] };
   }
   if (form === 'kxp' || form === 'kxpq') {
     const p = params.p;
     return {
-      ja: `x \\neq ${latexNum(p)}`,
-      en: `x \\neq ${latexNum(p)}`,
+      text: `x \\neq ${latexNum(p)}`,
       exclude: [p]
     };
   }
-  return { ja: '\\text{すべての実数}', en: '\\text{all real numbers}', exclude: [] };
+  return { text: isJa ? '\\text{すべての実数}' : '\\text{all real numbers}', exclude: [] };
 }
 
 function asymptotesOf(form, params) {
@@ -228,7 +241,7 @@ function formulaHtml(form, params, withDomain = true) {
   const main = renderKatex(tex);
   if (!withDomain) return { tex, main, domain: null, html: main };
   const dom = domainOf(form, params);
-  const domainHtml = `<span class="domain">定義域 / domain: ${renderKatex(dom.ja)}</span>`;
+  const domainHtml = `<span class="domain">${TXT.domain}${renderKatex(dom.text)}</span>`;
   return { tex, main, domain: dom, html: main + domainHtml };
 }
 
@@ -302,13 +315,13 @@ function featuresCaptionHtml(form, params, primaryPoint) {
   const lines = [];
 
   if (f.vertex) {
-    lines.push(`頂点: ${renderKatex(`(${f.vertex.x},\\, ${f.vertex.y})`)}`);
+    lines.push(`${TXT.vertex}${renderKatex(`(${f.vertex.x},\\, ${f.vertex.y})`)}`);
   }
 
   if (f.yIntercept) {
     const isSameAsVertex = f.vertex && f.vertex.x === f.yIntercept.x && f.vertex.y === f.yIntercept.y;
     if (!isSameAsVertex) {
-      lines.push(`y切片: ${renderKatex(`(${f.yIntercept.x},\\, ${f.yIntercept.y})`)}`);
+      lines.push(`${TXT.yInt}${renderKatex(`(${f.yIntercept.x},\\, ${f.yIntercept.y})`)}`);
     }
   }
 
@@ -318,7 +331,7 @@ function featuresCaptionHtml(form, params, primaryPoint) {
   });
   if (uniqueXInts.length) {
     const xs = uniqueXInts.map((pt) => renderKatex(`(${pt.x},\\, 0)`)).join(', ');
-    lines.push(`x切片: ${xs}`);
+    lines.push(`${TXT.xInt}${xs}`);
   }
 
   if (f.asymptotes.length) {
@@ -326,7 +339,7 @@ function featuresCaptionHtml(form, params, primaryPoint) {
       if (a.type === 'v') return renderKatex(`x = ${a.value}`);
       return renderKatex(`y = ${a.value}`);
     }).join(', ');
-    lines.push(`漸近線: ${asy}`);
+    lines.push(`${TXT.asymptotes}${asy}`);
   }
 
   const special = new Set();
@@ -335,7 +348,7 @@ function featuresCaptionHtml(form, params, primaryPoint) {
   f.xIntercepts.forEach((pt) => special.add(`${pt.x},${pt.y}`));
   
   if (primaryPoint && !special.has(`${primaryPoint.x},${primaryPoint.y}`)) {
-    lines.push(`通る点: ${renderKatex(`(${primaryPoint.x},\\, ${primaryPoint.y})`)}`);
+    lines.push(`${TXT.passingPoint}${renderKatex(`(${primaryPoint.x},\\, ${primaryPoint.y})`)}`);
   }
 
   return lines.join('<br>');
@@ -1009,11 +1022,11 @@ function buildExplanation(form, params, mode, pt, correctIndex) {
         break;
     }
     
-    ja.push(`これらを満たすグラフは <strong>選択肢 ${choiceChar}</strong> です。`);
-    en.push(`The graph that satisfies these conditions is <strong>Choice ${choiceChar}</strong>.`);
+    ja.push(`これらを満たすグラフは <strong>${TXT.choiceLabel} ${choiceChar}</strong> です。`);
+    en.push(`The graph that satisfies these conditions is <strong>${TXT.choiceLabel} ${choiceChar}</strong>.`);
   }
 
-  return { ja, en };
+  return isJa ? ja : en;
 }
 
 function explanationToHtml(exp, isCorrect, correctTex, domainObj, mode, correctIndex) {
@@ -1025,55 +1038,52 @@ function explanationToHtml(exp, isCorrect, correctTex, domainObj, mode, correctI
 
   if (mode === 'f2g') {
     resultTitle = isCorrect 
-      ? `正解！ Correct! &nbsp;&rarr;&nbsp; <span class="math-ans">選択肢 ${choiceChar}</span>`
-      : `不正解... Incorrect... 正解は / Answer: &nbsp; <span class="math-ans">選択肢 ${choiceChar}</span>`;
+      ? `${TXT.ansTitleCorrect} &nbsp;&rarr;&nbsp; <span class="math-ans">${TXT.choiceLabel} ${choiceChar}</span>`
+      : `${TXT.ansTitleWrong} &nbsp; <span class="math-ans">${TXT.choiceLabel} ${choiceChar}</span>`;
     
-    ansText = `【答え / Answer】 &nbsp; <span class="math-ans">選択肢 ${choiceChar}</span>`;
-    ansText += `<br><br><div style="font-weight:700; color:var(--muted); margin-bottom:4px;">【問題の式 / Formula】</div><div class="math-ans">${renderKatex(correctTex)}</div>`;
+    ansText = `${TXT.ansLabel} &nbsp; <span class="math-ans">${TXT.choiceLabel} ${choiceChar}</span>`;
+    ansText += `<br><br><div style="font-weight:700; color:var(--muted); margin-bottom:4px;">${TXT.formulaLabel}</div><div class="math-ans">${renderKatex(correctTex)}</div>`;
   } else {
     resultTitle = isCorrect 
-      ? `正解！ Correct! &nbsp;&rarr;&nbsp; <span class="math-ans">${renderKatex(correctTex)}</span>`
-      : `不正解... Incorrect... 正解は / Answer: &nbsp; <span class="math-ans">${renderKatex(correctTex)}</span>`;
+      ? `${TXT.ansTitleCorrect} &nbsp;&rarr;&nbsp; <span class="math-ans">${renderKatex(correctTex)}</span>`
+      : `${TXT.ansTitleWrong} &nbsp; <span class="math-ans">${renderKatex(correctTex)}</span>`;
       
-    ansText = `【答え / Answer】 &nbsp; <span class="math-ans">${renderKatex(correctTex)}</span>`;
+    ansText = `${TXT.ansLabel} &nbsp; <span class="math-ans">${renderKatex(correctTex)}</span>`;
   }
 
   if (domainObj && domainObj.exclude.length > 0) {
-    ansText += ` &nbsp; <span style="font-size:0.85em; color:var(--muted); font-weight:normal;">(定義域 / domain: ${renderKatex(domainObj.ja)})</span>`;
+    ansText += ` &nbsp; <span style="font-size:0.85em; color:var(--muted); font-weight:normal;">(${TXT.domain}${renderKatex(domainObj.text)})</span>`;
   }
 
   let mainExpl = [];
   let altExpl = [];
   let isAltSection = false;
 
-  exp.ja.forEach((jLine, i) => {
-    const eLine = exp.en[i];
-    if (jLine.includes('（別解）')) {
+  exp.forEach((line) => {
+    if (line.includes('（別解）') || line.includes('(Alternative)')) {
       isAltSection = true;
     }
     if (isAltSection) {
-      altExpl.push({ ja: jLine, en: eLine });
+      altExpl.push(line);
     } else {
-      mainExpl.push({ ja: jLine, en: eLine });
+      mainExpl.push(line);
     }
   });
 
   const parse = (text) => text.replace(/\$\$([\s\S]+?)\$\$/g, (_, tex) => renderKatex(tex.trim(), true))
                               .replace(/\$([^$]+)\$/g, (_, tex) => renderKatex(tex.trim(), false));
 
-  const mainLis = mainExpl.map(item => `
+  const mainLis = mainExpl.map(text => `
     <li>
-      <div class="exp-li-ja">${parse(item.ja)}</div>
-      <div class="exp-li-en">${parse(item.en)}</div>
+      <div class="exp-li-ja">${parse(text)}</div>
     </li>
   `).join('');
 
   let altHtml = '';
   if (altExpl.length > 0) {
-    const altContent = altExpl.map(item => `
+    const altContent = altExpl.map(text => `
       <div style="margin-bottom: 14px;">
-        <div class="exp-li-ja">${parse(item.ja)}</div>
-        <div class="exp-li-en">${parse(item.en)}</div>
+        <div class="exp-li-ja">${parse(text)}</div>
       </div>
     `).join('');
     altHtml = `
@@ -1090,13 +1100,13 @@ function explanationToHtml(exp, isCorrect, correctTex, domainObj, mode, correctI
       </div>
       <div class="exp-body">
         <div class="exp-ans-line">${ansText}</div>
-        <div class="exp-expl-label">【解説 / Explanation】</div>
+        <div class="exp-expl-label">${TXT.explLabel}</div>
         <ul class="exp-list">
           ${mainLis}
         </ul>
         ${altHtml}
         <div style="text-align: center; margin-top: 24px;">
-          <button type="button" class="btn-next next-btn-exp">次へ / Next (Enter) ⏎</button>
+          <button type="button" class="btn-next next-btn-exp">${TXT.nextBtn}</button>
         </div>
       </div>
     </div>
@@ -1152,7 +1162,7 @@ function renderFormMenu() {
 }
 
 function applyModeUI() {
-  document.title = '直線・放物線・双曲線関数 読み取り練習サイト / Graph & Function Reading Practice';
+  document.title = TXT.title;
 
   typeMenu.querySelectorAll('.chip').forEach((btn) => {
     const active = btn.dataset.type === currentType;
@@ -1176,7 +1186,7 @@ function renderQuestion(problem) {
   if (mode === 'g2f') {
     const layout = document.createElement('div');
     layout.innerHTML = `
-      <p class="question-prompt">このグラフに対応する式はどれ？<br><span class="en">Which formula matches this graph?</span></p>
+      <p class="question-prompt">${TXT.g2fPrompt}</p>
       <div class="two-pane-layout">
         <div class="pane-left">
           <div class="graph-frame">
@@ -1184,7 +1194,7 @@ function renderQuestion(problem) {
           </div>
           <div class="hint-box">
             <strong style="margin-bottom: 8px; font-size: 0.95rem; color: #1a2b25; display:block; text-align:center;">
-              特徴となる点 / Key Points
+              ${TXT.keyPoints}
             </strong>
             <div style="line-height:1.6; font-weight: 700;">
               ${featuresCaptionHtml(form, correctParams, primaryPoint)}
@@ -1194,8 +1204,8 @@ function renderQuestion(problem) {
         <div class="pane-right">
           <div class="choices" id="choicesGroup"></div>
           <div id="nextBtnContainer" style="display: none; margin-top: 16px; text-align: center;">
-            <button type="button" class="btn-next next-btn-main">次へ / Next (Enter) ⏎</button>
-            <p style="margin-top: 10px; font-size: 0.9rem; color: var(--muted); font-weight: 700;">解説は以下をご覧ください。<br><span style="font-size: 0.85em;">Please see the explanation below.</span></p>
+            <button type="button" class="btn-next next-btn-main">${TXT.nextBtn}</button>
+            <p style="margin-top: 10px; font-size: 0.9rem; color: var(--muted); font-weight: 700;">${TXT.seeExpl}</p>
           </div>
         </div>
       </div>
@@ -1213,7 +1223,7 @@ function renderQuestion(problem) {
         <span class="choice-letter">${String.fromCharCode(65 + i)}</span>
         <span class="choice-content">
           ${fmt.main}
-          <span class="domain">定義域 / domain: ${renderKatex(fmt.domain.ja)}</span>
+          <span class="domain">${TXT.domain}${renderKatex(fmt.domain.text)}</span>
         </span>
         <span class="choice-badge"></span>
       `;
@@ -1227,15 +1237,15 @@ function renderQuestion(problem) {
     const fmt = formulaHtml(form, correctParams, true);
     layout.innerHTML = `
       <div class="question-header-f2g" id="f2gHeaderArea">
-        <p class="question-prompt">この式に対応するグラフはどれ？<br><span class="en">Which graph matches this formula?</span></p>
+        <p class="question-prompt">${TXT.f2gPrompt}</p>
         <div class="formula-display">
-          ${fmt.main}<span class="domain">定義域 / domain: ${renderKatex(fmt.domain.ja)}</span>
+          ${fmt.main}<span class="domain">${TXT.domain}${renderKatex(fmt.domain.text)}</span>
         </div>
       </div>
       <div class="choices choices-graph" id="choicesGroup"></div>
       <div id="nextBtnContainer" style="display: none; margin-top: 16px; text-align: center;">
-        <button type="button" class="btn-next next-btn-main">次へ / Next (Enter) ⏎</button>
-        <p style="margin-top: 10px; font-size: 0.9rem; color: var(--muted); font-weight: 700;">解説は以下をご覧ください。<br><span style="font-size: 0.85em;">Please see the explanation below.</span></p>
+        <button type="button" class="btn-next next-btn-main">${TXT.nextBtn}</button>
+        <p style="margin-top: 10px; font-size: 0.9rem; color: var(--muted); font-weight: 700;">${TXT.seeExpl}</p>
       </div>
     `;
     questionArea.appendChild(layout);
@@ -1294,10 +1304,10 @@ function selectChoice(index) {
     const badge = btn.querySelector('.choice-badge');
     if (iNum === correctIndex) {
       btn.classList.add('is-correct');
-      if (badge) badge.textContent = '正解 / Correct';
+      if (badge) badge.textContent = TXT.correct;
     } else if (iNum === index && !isCorrect) {
       btn.classList.add('is-wrong');
-      if (badge) badge.textContent = '不正解 / Incorrect';
+      if (badge) badge.textContent = TXT.incorrect;
     } else {
       btn.classList.add('is-dimmed');
     }
@@ -1324,7 +1334,6 @@ function selectChoice(index) {
   
   updateScoreboard();
 
-  // 選択肢群のすぐ下にある「次へ」ボタンを表示し、フォーカスを移動する
   setTimeout(() => {
     const container = document.getElementById('nextBtnContainer');
     if (container) {
@@ -1380,7 +1389,6 @@ resetBtn.addEventListener('click', () => {
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && locked) {
-    // 選択肢直下のボタン、もしくは解説内下部のボタンがあればクリックする
     const nextBtnMain = document.querySelector('#nextBtnContainer .next-btn-main');
     if (nextBtnMain) {
       e.preventDefault();
