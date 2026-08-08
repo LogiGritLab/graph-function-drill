@@ -28,6 +28,17 @@ const TXT = {
   explLabel: isJa ? '【解説】' : '[Explanation]'
 };
 
+const TYPE_META = {
+  linear: { labelJa: '直線', labelEn: 'Linear' },
+  parabola: { labelJa: '放物線', labelEn: 'Parabola' },
+  hyperbola: { labelJa: '双曲線', labelEn: 'Hyperbola' }
+};
+
+const MODE_META = {
+  g2f: { labelJa: 'グラフ→式', labelEn: 'Graph → Formula' },
+  f2g: { labelJa: '式→グラフ', labelEn: 'Formula → Graph' }
+};
+
 const FORM_OPTIONS = {
   linear: [
     { id: 'ax', tex: 'y = ax' },
