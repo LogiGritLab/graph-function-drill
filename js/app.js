@@ -752,8 +752,8 @@ function buildExplanation(form, params, mode, pt, correctIndex) {
         ja.push(`（傾き $a = ${a}$ が${a > 0 ? '正なので右上がり' : '負なので右下がり'}の直線になっています）`);
         en.push(`(The slope $a = ${a}$ is ${a > 0 ? 'positive, so the line rises to the right' : 'negative, so the line falls to the right'}.)`);
 
-        ja.push(`<strong>（別解）</strong>グラフ上の点 $(0, 0)$ と 点 $(${pt.x}, ${pt.y})$ を用いて傾き $a$ を求めます。`);
-        en.push(`<strong>(Alternative)</strong> Find the slope $a$ using the origin $(0, 0)$ and point $(${pt.x}, ${pt.y})$.`);
+        ja.push(`（別解）グラフ上の点 $(0, 0)$ と 点 $(${pt.x}, ${pt.y})$ を用いて傾き $a$ を求めます。`);
+        en.push(`(Alternative) Find the slope $a$ using the origin $(0, 0)$ and point $(${pt.x}, ${pt.y})$.`);
 
         ja.push(`傾き $a$ は「$y$の増加量 $\\div$ $x$の増加量」なので、<br> $a = \\dfrac{${pt.y} - 0}{${pt.x} - 0} = \\dfrac{${pt.y}}{${pt.x}} = ${a}$ 　と計算できます。`);
         en.push(`The slope $a$ is (change in y) $\\div$ (change in x), so:<br> $a = \\dfrac{${pt.y} - 0}{${pt.x} - 0} = \\dfrac{${pt.y}}{${pt.x}} = ${a}$.`);
@@ -777,8 +777,8 @@ function buildExplanation(form, params, mode, pt, correctIndex) {
         const pB = 0 < pt.x ? pt : {x:0, y:b};
         const dx2 = pB.x - pA.x;
         const dy2 = pB.y - pA.y;
-        ja.push(`<strong>（別解）</strong> グラフ上の点 $(${pA.x}, ${pA.y})$ と 点 $(${pB.x}, ${pB.y})$ を用いて傾きを求めます。`);
-        en.push(`<strong>(Alternative)</strong> Find the slope using points $(${pA.x}, ${pA.y})$ and $(${pB.x}, ${pB.y})$.`);
+        ja.push(`（別解）グラフ上の点 $(${pA.x}, ${pA.y})$ と 点 $(${pB.x}, ${pB.y})$ を用いて傾きを求めます。`);
+        en.push(`(Alternative) Find the slope using points $(${pA.x}, ${pA.y})$ and $(${pB.x}, ${pB.y})$.`);
 
         ja.push(`傾き $a$ は「$y$の増加量 $\\div$ $x$の増加量」なので、<br> $a = \\dfrac{${pB.y} - ${paren(pA.y)}}{${pB.x} - ${paren(pA.x)}} = \\dfrac{${dy2}}{${dx2}} = ${a}$ 　と計算できます。`);
         en.push(`The slope $a$ is (change in y) $\\div$ (change in x), so:<br> $a = \\dfrac{${pB.y} - ${paren(pA.y)}}{${pB.x} - ${paren(pA.x)}} = \\dfrac{${dy2}}{${dx2}} = ${a}$.`);
@@ -1076,7 +1076,6 @@ function explanationToHtml(exp, isCorrect, correctTex, domainObj, mode, correctI
         <div class="exp-li-en">${parse(item.en)}</div>
       </div>
     `).join('');
-    // インデントをなくし、上に1行分の余白をあける
     altHtml = `
       <div style="margin-top: 24px;">
         ${altContent}
@@ -1174,24 +1173,26 @@ function renderQuestion(problem) {
   
   if (mode === 'g2f') {
     const layout = document.createElement('div');
-    layout.className = 'two-pane-layout';
+    // タイトルをペインの上に移動してグラフと選択肢の上端を揃える
     layout.innerHTML = `
-      <div class="pane-left">
-        <p class="question-prompt">このグラフに対応する式はどれ？<br><span class="en">Which formula matches this graph?</span></p>
-        <div class="graph-frame">
-          ${buildGraphSvg(form, correctParams, { size: 360, primaryPoint, showAsymptotes: true, showLabels: true, compact: false })}
-        </div>
-        <div class="hint-box">
-          <strong style="margin-bottom: 8px; font-size: 0.95rem; color: #1a2b25; display:block; text-align:center;">
-            特徴となる点 / Key Points
-          </strong>
-          <div style="line-height:1.6; font-weight: 700;">
-            ${featuresCaptionHtml(form, correctParams, primaryPoint)}
+      <p class="question-prompt">このグラフに対応する式はどれ？<br><span class="en">Which formula matches this graph?</span></p>
+      <div class="two-pane-layout">
+        <div class="pane-left">
+          <div class="graph-frame">
+            ${buildGraphSvg(form, correctParams, { size: 360, primaryPoint, showAsymptotes: true, showLabels: true, compact: false })}
+          </div>
+          <div class="hint-box">
+            <strong style="margin-bottom: 8px; font-size: 0.95rem; color: #1a2b25; display:block; text-align:center;">
+              特徴となる点 / Key Points
+            </strong>
+            <div style="line-height:1.6; font-weight: 700;">
+              ${featuresCaptionHtml(form, correctParams, primaryPoint)}
+            </div>
           </div>
         </div>
-      </div>
-      <div class="pane-right">
-        <div class="choices" id="choicesGroup"></div>
+        <div class="pane-right">
+          <div class="choices" id="choicesGroup"></div>
+        </div>
       </div>
     `;
     questionArea.appendChild(layout);
@@ -1314,7 +1315,7 @@ function selectChoice(index) {
   
   updateScoreboard();
 
-  // スクロールはさせずに、フォーカスのみ移動させる
+  // スクロールはさせずに、フォーカスのみ移動させる（マウス操作不能なためキーボード対応）
   setTimeout(() => {
     const nextBtnExp = explanationEl.querySelector('.next-btn-exp');
     if (nextBtnExp) nextBtnExp.focus({ preventScroll: true });
