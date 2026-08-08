@@ -1193,8 +1193,9 @@ function renderQuestion(problem) {
         </div>
         <div class="pane-right">
           <div class="choices" id="choicesGroup"></div>
-          <div id="nextBtnG2fContainer" style="display: none; margin-top: 12px; text-align: center;">
-            <button type="button" class="btn-next next-btn-exp">次へ / Next (Enter) ⏎</button>
+          <div id="nextBtnContainer" style="display: none; margin-top: 16px; text-align: center;">
+            <button type="button" class="btn-next next-btn-main">次へ / Next (Enter) ⏎</button>
+            <p style="margin-top: 10px; font-size: 0.9rem; color: var(--muted); font-weight: 700;">解説は以下をご覧ください。<br><span style="font-size: 0.85em;">Please see the explanation below.</span></p>
           </div>
         </div>
       </div>
@@ -1232,6 +1233,10 @@ function renderQuestion(problem) {
         </div>
       </div>
       <div class="choices choices-graph" id="choicesGroup"></div>
+      <div id="nextBtnContainer" style="display: none; margin-top: 16px; text-align: center;">
+        <button type="button" class="btn-next next-btn-main">次へ / Next (Enter) ⏎</button>
+        <p style="margin-top: 10px; font-size: 0.9rem; color: var(--muted); font-weight: 700;">解説は以下をご覧ください。<br><span style="font-size: 0.85em;">Please see the explanation below.</span></p>
+      </div>
     `;
     questionArea.appendChild(layout);
 
@@ -1319,22 +1324,14 @@ function selectChoice(index) {
   
   updateScoreboard();
 
-  // スクロールはさせずに、フォーカスのみ移動させる
+  // 選択肢群のすぐ下にある「次へ」ボタンを表示し、フォーカスを移動する
   setTimeout(() => {
-    let nextBtnExp = null;
-    if (mode === 'g2f') {
-      const g2fContainer = document.getElementById('nextBtnG2fContainer');
-      if (g2fContainer) {
-        g2fContainer.style.display = 'block';
-        nextBtnExp = g2fContainer.querySelector('.next-btn-exp');
-      }
+    const container = document.getElementById('nextBtnContainer');
+    if (container) {
+      container.style.display = 'block';
+      const nextBtn = container.querySelector('.next-btn-main');
+      if (nextBtn) nextBtn.focus({ preventScroll: true });
     }
-    
-    if (!nextBtnExp) {
-      nextBtnExp = explanationEl.querySelector('.next-btn-exp');
-    }
-    
-    if (nextBtnExp) nextBtnExp.focus({ preventScroll: true });
   }, 100);
 }
 
@@ -1358,7 +1355,7 @@ modeMenu.addEventListener('click', (e) => {
 });
 
 questionArea.addEventListener('click', (e) => {
-  if (e.target.closest('.next-btn-exp')) {
+  if (e.target.closest('.btn-next')) {
     newProblem();
     return;
   }
@@ -1368,7 +1365,7 @@ questionArea.addEventListener('click', (e) => {
 });
 
 explanationEl.addEventListener('click', (e) => {
-  if (e.target.closest('.next-btn-exp')) {
+  if (e.target.closest('.btn-next')) {
     newProblem();
   }
 });
@@ -1383,7 +1380,14 @@ resetBtn.addEventListener('click', () => {
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && locked) {
-    const nextBtnExp = explanationEl.querySelector('.next-btn-exp') || document.querySelector('#nextBtnG2fContainer .next-btn-exp');
+    // 選択肢直下のボタン、もしくは解説内下部のボタンがあればクリックする
+    const nextBtnMain = document.querySelector('#nextBtnContainer .next-btn-main');
+    if (nextBtnMain) {
+      e.preventDefault();
+      nextBtnMain.click();
+      return;
+    }
+    const nextBtnExp = explanationEl.querySelector('.next-btn-exp');
     if (nextBtnExp) {
       e.preventDefault();
       nextBtnExp.click();
