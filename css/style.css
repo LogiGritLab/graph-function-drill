@@ -151,7 +151,7 @@ button { font-family: inherit; }
     margin-bottom: 12px;
   }
   .question-header-f2g .formula-display {
-    align-self: center; /* 式は中央に */
+    align-self: center;
   }
 }
 
@@ -312,7 +312,7 @@ button { font-family: inherit; }
 .exp-header {
   padding: 16px 20px 10px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: flex-start;
   gap: 16px;
 }
@@ -375,9 +375,6 @@ button { font-family: inherit; }
 @media (max-width: 480px) {
   .exp-header {
     flex-direction: column;
-  }
-  .btn-next {
-    align-self: flex-end;
   }
 }
 
