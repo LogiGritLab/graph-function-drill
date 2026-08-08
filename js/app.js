@@ -6,7 +6,7 @@
 const isJa = document.documentElement.lang !== 'en';
 
 const TXT = {
-  title: isJa ? '関数グラフ 読み取り練習' : 'Graph & Function Practice',
+  title: isJa ? '直線・放物線・双曲線関数 読み取り練習サイト' : 'Linear, Parabola, & Hyperbola Reading Practice',
   g2fPrompt: isJa ? 'このグラフに対応する式はどれ？' : 'Which formula matches this graph?',
   f2gPrompt: isJa ? 'この式に対応するグラフはどれ？' : 'Which graph matches this formula?',
   keyPoints: isJa ? '特徴となる点' : 'Key Points',
